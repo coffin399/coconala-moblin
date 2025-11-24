@@ -1,3 +1,5 @@
+from pathlib import Path
+
 import numpy as np
 from faster_whisper import WhisperModel
 
@@ -33,7 +35,18 @@ def create_model(device_mode: str = "cpu", quality: str = "normal") -> WhisperMo
     else:
         # Fallback to tiny to avoid heavy models by accident.
         model_size = "tiny"
-    model = WhisperModel(model_size, device=device, compute_type=compute_type)
+
+    # Use a stable cache directory so Nuitka onefile builds do not rely on
+    # temporary ONEFILE extraction paths. This works both for Python and exe.
+    cache_root = Path.home() / ".cache" / "moblin-smart-translation" / "models"
+    cache_root.mkdir(parents=True, exist_ok=True)
+
+    model = WhisperModel(
+        model_size,
+        device=device,
+        compute_type=compute_type,
+        download_root=str(cache_root),
+    )
     return model
 
 
