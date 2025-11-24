@@ -43,6 +43,12 @@ def create_model(device_mode: str = "cpu", quality: str = "normal") -> WhisperMo
     cache_root = env_root / "models" / "faster-whisper"
     cache_root.mkdir(parents=True, exist_ok=True)
 
+    # Debug: log which model is being used and where it is cached.
+    print(
+        f"[model] creating faster-whisper model_size={model_size!r} "
+        f"device={device!r} compute_type={compute_type!r} cache_root={str(cache_root)!r}"
+    )
+
     model = WhisperModel(
         model_size,
         device=device,

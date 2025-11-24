@@ -255,6 +255,13 @@
               <option value="ko">韓国語 (ko)</option>
             </select>
           </div>
+          <div>
+            <label class="field-label">動作モード</label>
+            <select id="device-mode">
+              <option value="cpu">CPU</option>
+              <option value="cuda">GPU (CUDA)</option>
+            </select>
+          </div>
         </div>
       </div>
       <nav class="nav-tabs">
@@ -421,6 +428,7 @@
         obsPath: document.getElementById("obs-path"),
         mode: document.getElementById("mode"),
         language: document.getElementById("language"),
+        deviceMode: document.getElementById("device-mode"),
         quality: document.getElementById("quality"),
         audioDevice: document.getElementById("audio-device"),
         workerStart: document.getElementById("worker-start-btn"),
@@ -450,6 +458,7 @@
           if (s.mode) els.mode.value = s.mode;
           if (s.language) els.language.value = s.language;
           if (s.quality) els.quality.value = s.quality;
+          if (s.deviceMode) els.deviceMode.value = s.deviceMode;
         } catch {
           // ignore
         }
@@ -469,6 +478,7 @@
           obsPath: els.obsPath.value || "",
           mode: els.mode.value,
           language: els.language.value,
+          deviceMode: els.deviceMode.value,
           quality: els.quality.value,
         };
       }
@@ -580,6 +590,9 @@
           if (cfg.quality && els.quality) {
             els.quality.value = cfg.quality;
           }
+           if (cfg.device_mode && els.deviceMode) {
+             els.deviceMode.value = cfg.device_mode;
+           }
           if (cfg.audio_device !== undefined && els.audioDevice) {
             const v = cfg.audio_device === null ? "" : String(cfg.audio_device);
             const options = Array.from(els.audioDevice.options).map((o) => o.value);
@@ -601,6 +614,7 @@
           audio_device: value === "" ? null : value,
           mode: els.mode.value,
           language: els.language.value,
+          device_mode: els.deviceMode.value,
           quality: els.quality.value,
         };
         try {

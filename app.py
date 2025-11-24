@@ -53,9 +53,21 @@ def worker_loop(
     model = create_model(device_mode, quality=quality)
     sample_rate = DEFAULT_SAMPLE_RATE
 
+    # If a specific audio device index is provided, set it as the default
+    # input device for sounddevice. We then always record with device=None
+    # so that the behaviour matches the "use default device" path, which
+    # is known to work reliably on Windows.
+    if audio_device is not None:
+        try:
+            sd.default.device = (audio_device, audio_device)
+            print(f"[worker] using audio device index {audio_device} as default input")
+        except Exception as dev_exc:  # noqa: BLE001
+            print(f"[worker error] failed to set default device {audio_device}: {dev_exc!r}")
+            audio_device = None
+
     while not stop_event.is_set():
         try:
-            audio = record_block(segment_seconds, samplerate=sample_rate, device=audio_device)
+            audio = record_block(segment_seconds, samplerate=sample_rate)
             # Debug: basic stats of the captured audio block
             try:
                 print(
@@ -225,9 +237,10 @@ def api_worker():  # type: ignore[override]
         mode_value = str(data.get("mode") or cfg.get("mode") or "translate")
         language_value = data.get("language", cfg.get("language", None))
         quality_value = str(data.get("quality") or cfg.get("quality") or "ultra_low")
+        device_mode_value = str(data.get("device_mode") or cfg.get("device_mode") or "cpu")
 
         start_worker(
-            cfg.get("device_mode", "cpu"),
+            device_mode_value,
             audio_device,
             float(cfg.get("segment_seconds", 8.0)),
             quality_value,
