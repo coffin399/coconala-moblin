@@ -233,6 +233,29 @@
           <h1>moblin-smart-translation</h1>
           <div class="sub">Web コントロール · 設定</div>
         </div>
+
+        <div class="field row-inline">
+          <div>
+            <label class="field-label">モード</label>
+            <select id="mode">
+              <option value="translate">翻訳（英語）</option>
+              <option value="transcribe">書き起こし（元の言語）</option>
+            </select>
+          </div>
+          <div>
+            <label class="field-label">元の言語</label>
+            <select id="language">
+              <option value="auto">自動検出</option>
+              <option value="ja">日本語 (ja)</option>
+              <option value="en">英語 (en)</option>
+              <option value="zh">中国語 (zh)</option>
+              <option value="fr">フランス語 (fr)</option>
+              <option value="de">ドイツ語 (de)</option>
+              <option value="es">スペイン語 (es)</option>
+              <option value="ko">韓国語 (ko)</option>
+            </select>
+          </div>
+        </div>
       </div>
       <nav class="nav-tabs">
         <a class="nav-tab active" href="/settings">テキスト設定</a>
@@ -382,6 +405,8 @@
         background: document.getElementById("background"),
         padding: document.getElementById("padding"),
         obsPath: document.getElementById("obs-path"),
+        mode: document.getElementById("mode"),
+        language: document.getElementById("language"),
         audioDevice: document.getElementById("audio-device"),
         workerStart: document.getElementById("worker-start-btn"),
         workerStop: document.getElementById("worker-stop-btn"),
@@ -407,6 +432,8 @@
           if (s.background) els.background.value = s.background;
           if (s.padding !== undefined) els.padding.value = String(s.padding);
           if (s.obsPath) els.obsPath.value = s.obsPath;
+          if (s.mode) els.mode.value = s.mode;
+          if (s.language) els.language.value = s.language;
         } catch {
           // ignore
         }
@@ -424,6 +451,8 @@
           background: els.background.value,
           padding: Number(els.padding.value) || 16,
           obsPath: els.obsPath.value || "",
+          mode: els.mode.value,
+          language: els.language.value,
         };
       }
 
@@ -524,6 +553,13 @@
           const running = !!data.running;
           els.workerStart.disabled = running;
           els.workerStop.disabled = !running;
+          const cfg = data.config || {};
+          if (cfg.mode && els.mode) {
+            els.mode.value = cfg.mode;
+          }
+          if (cfg.language !== undefined && els.language) {
+            els.language.value = cfg.language || "auto";
+          }
         } catch (err) {
           console.error(err);
         }
@@ -531,7 +567,12 @@
 
       async function startWorker() {
         const value = els.audioDevice.value;
-        const payload = { action: "start", audio_device: value === "" ? null : value };
+        const payload = {
+          action: "start",
+          audio_device: value === "" ? null : value,
+          mode: els.mode.value,
+          language: els.language.value,
+        };
         try {
           const res = await fetch("/api/worker", {
             method: "POST",

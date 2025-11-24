@@ -47,6 +47,8 @@ def worker_loop(
     segment_seconds: float,
     quality: str,
     stop_event: threading.Event,
+    mode: str,
+    language: Optional[str],
 ) -> None:
     model = create_model(device_mode, quality=quality)
     sample_rate = DEFAULT_SAMPLE_RATE
@@ -58,8 +60,8 @@ def worker_loop(
                 model,
                 audio,
                 sample_rate=sample_rate,
-                mode="translate",
-                language=None,
+                mode=mode,
+                language=language,
                 quality=quality,
             )
             if text:
@@ -75,6 +77,8 @@ def start_worker(
     audio_device: Optional[int],
     segment_seconds: float,
     quality: str,
+    mode: str = "translate",
+    language: Optional[str] = None,
 ) -> None:
     global worker_thread, worker_stop_event, worker_config
     with worker_lock:
@@ -90,10 +94,12 @@ def start_worker(
             "audio_device": audio_device,
             "segment_seconds": segment_seconds,
             "quality": quality,
+            "mode": mode,
+            "language": language,
         }
 
         def _run() -> None:
-            worker_loop(device_mode, audio_device, segment_seconds, quality, stop_event)
+            worker_loop(device_mode, audio_device, segment_seconds, quality, stop_event, mode, language)
 
         worker_thread = threading.Thread(target=_run, daemon=True)
         worker_thread.start()
@@ -191,6 +197,8 @@ def api_worker():  # type: ignore[override]
                 "audio_device": None,
                 "segment_seconds": 8.0,
                 "quality": "ultra_low",
+                "mode": "translate",
+                "language": None,
             }
 
         audio_device_value = data.get("audio_device")
@@ -203,11 +211,16 @@ def api_worker():  # type: ignore[override]
             except (TypeError, ValueError):
                 return jsonify({"error": "invalid audio_device"}), 400
 
+        mode_value = str(data.get("mode") or cfg.get("mode") or "translate")
+        language_value = data.get("language", cfg.get("language", None))
+
         start_worker(
             cfg.get("device_mode", "cpu"),
             audio_device,
             float(cfg.get("segment_seconds", 8.0)),
             str(cfg.get("quality", "ultra_low")),
+            mode_value,
+            language_value,
         )
         return jsonify({"ok": True, "running": True})
 
@@ -252,7 +265,7 @@ def main() -> None:
     args = parse_args()
 
     # Start the initial worker with CLI defaults.
-    start_worker(args.device, args.audio_device, args.segment_seconds, args.quality)
+    start_worker(args.device, args.audio_device, args.segment_seconds, args.quality, "translate", None)
 
     # Open default browser to the settings page shortly after startup.
     url = f"http://{args.host}:{args.port}/settings"
