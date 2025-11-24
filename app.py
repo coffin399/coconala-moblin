@@ -33,14 +33,26 @@ class TranscriptBuffer:
 transcript_buffer = TranscriptBuffer()
 
 
-def worker_loop(device_mode: str, audio_device: Optional[int], segment_seconds: float) -> None:
-    model = create_model(device_mode)
+def worker_loop(
+    device_mode: str,
+    audio_device: Optional[int],
+    segment_seconds: float,
+    quality: str,
+) -> None:
+    model = create_model(device_mode, quality=quality)
     sample_rate = DEFAULT_SAMPLE_RATE
 
     while True:
         try:
             audio = record_block(segment_seconds, samplerate=sample_rate, device=audio_device)
-            text = translate_segment(model, audio, sample_rate=sample_rate)
+            text = translate_segment(
+                model,
+                audio,
+                sample_rate=sample_rate,
+                mode="translate",
+                language=None,
+                quality=quality,
+            )
             if text:
                 transcript_buffer.append(text)
         except Exception as exc:  # noqa: BLE001
@@ -79,6 +91,15 @@ def parse_args():
         default=8.0,
         help="Length of each audio segment in seconds. Shorter = lower latency, higher CPU load",
     )
+    parser.add_argument(
+        "--quality",
+        choices=["ultra_low", "low", "normal", "high", "ultra_high"],
+        default="normal",
+        help=(
+            "Quality/latency preset: ultra_low, low, normal, high, ultra_high. "
+            "Lower = faster & lighter, higher = slower & more accurate."
+        ),
+    )
     parser.add_argument("--host", default="127.0.0.1", help="Flask bind host")
     parser.add_argument("--port", type=int, default=5000, help="Flask bind port")
     return parser.parse_args()
@@ -89,7 +110,7 @@ def main() -> None:
 
     worker = threading.Thread(
         target=worker_loop,
-        args=(args.device, args.audio_device, args.segment_seconds),
+        args=(args.device, args.audio_device, args.segment_seconds, args.quality),
         daemon=True,
     )
     worker.start()

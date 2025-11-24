@@ -113,6 +113,24 @@ class App(tk.Tk):
         self.segment_entry = ttk.Entry(controls, textvariable=self.segment_var, width=6)
         self.segment_entry.grid(row=1, column=4, sticky=tk.W, pady=(4, 0))
 
+        # Quality preset
+        ttk.Label(controls, text="Quality:").grid(
+            row=1,
+            column=5,
+            sticky=tk.W,
+            padx=(8, 4),
+            pady=(4, 0),
+        )
+        self.quality_var = tk.StringVar(value="normal")
+        self.quality_combo = ttk.Combobox(
+            controls,
+            textvariable=self.quality_var,
+            values=["ultra_low", "low", "normal", "high", "ultra_high"],
+            state="readonly",
+            width=12,
+        )
+        self.quality_combo.grid(row=1, column=6, sticky=tk.W, pady=(4, 0))
+
         # Start / Stop buttons
         self.start_button = ttk.Button(controls, text="Start", command=self.start_worker)
         self.start_button.grid(row=0, column=6, padx=(16, 4))
@@ -137,6 +155,7 @@ class App(tk.Tk):
         device = self.device_var.get().lower()
         mode = self.mode_var.get().lower()
         language = self.language_var.get().strip().lower()
+        quality = self.quality_var.get().strip().lower()
 
         try:
             segment_seconds = float(self.segment_var.get())
@@ -162,10 +181,10 @@ class App(tk.Tk):
 
         def worker() -> None:
             try:
-                model = create_model(device)
+                model = create_model(device, quality=quality)
                 self._model = model
                 self.status_var.set(
-                    f"Running: device={device}, mode={mode}, lang={language}, segment={segment_seconds}s (VB-Cable as input)"
+                    f"Running: device={device}, mode={mode}, lang={language}, quality={quality}, segment={segment_seconds}s (VB-Cable as input)"
                 )
                 sample_rate = DEFAULT_SAMPLE_RATE
 
@@ -177,6 +196,7 @@ class App(tk.Tk):
                         sample_rate=sample_rate,
                         mode=mode,
                         language=language,
+                        quality=quality,
                     )
                     if text:
                         self._buffer.append(text)
@@ -197,6 +217,7 @@ class App(tk.Tk):
         self.device_combo.configure(state="readonly" if not running else "disabled")
         self.mode_combo.configure(state="readonly" if not running else "disabled")
         self.language_combo.configure(state="readonly" if not running else "disabled")
+        self.quality_combo.configure(state="readonly" if not running else "disabled")
         self.audio_entry.configure(state=state)
         self.segment_entry.configure(state=state)
         self.start_button.configure(state=tk.DISABLED if running else tk.NORMAL)

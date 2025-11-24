@@ -40,12 +40,18 @@ python app.py --device cuda
 カスタム設定の例:
 
 ```bash
-python app.py --device cpu --audio-device 3 --segment-seconds 6 --port 8000
+python app.py --device cpu --audio-device 3 --segment-seconds 6 --quality low --port 8000
 ```
 
 - `--device`: `cpu` または `cuda`。省略時は `cpu`
 - `--audio-device`: `sounddevice` の入力デバイス番号。省略時は OS の既定デバイス（VB-Cable を推奨）
 - `--segment-seconds`: 録音チャンク長。短くすると遅延は減るが CPU 負荷は増える
+- `--quality`: `ultra_low` / `low` / `normal` / `high` / `ultra_high`
+  - `ultra_low`: 最速・最軽量（tiny, beam_size 1）
+  - `low`: 速い・やや精度アップ
+  - `normal`: バランス（標準）
+  - `high`: 精度寄り
+  - `ultra_high`: 最高精度寄り（CPU/GPU 負荷が最も高い）
 - `--port`: Web UI のポート番号（デフォルト 5000）
 
 ## 使い方
@@ -68,6 +74,7 @@ GUI から以下を設定できます。
 - Mode: `translate`（英語に翻訳） / `transcribe`（元の言語で書き起こし）
 - Audio device index: `python -m sounddevice` で確認した入力デバイス番号（空欄なら OS 既定）
 - Segment seconds: 1 チャンクの長さ（短いほど遅延は減るが CPU 負荷は増える）
+- Quality: `ultra_low` / `low` / `normal` / `high` / `ultra_high`（速度と精度のプリセット）
 
 「Start」を押すとモデルをロードして、VB-Cable からの音声をリアルタイムに処理します。
 
