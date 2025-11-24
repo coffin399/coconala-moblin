@@ -57,9 +57,28 @@ def worker_loop(
     while not stop_event.is_set():
         try:
             audio = record_block(segment_seconds, samplerate=sample_rate, device=audio_device)
-            # Sanitize audio to avoid NaNs / infs propagating into faster-whisper.
+            # Sanitize audio to avoid NaNs / infs / absurd amplitudes propagating into faster-whisper.
+            if audio.size == 0:
+                continue
+
+            # Replace NaNs / infs with safe finite values.
             if not np.isfinite(audio).all():
-                audio = np.nan_to_num(audio, nan=0.0, posinf=1.0, neginf=-1.0)
+                audio = np.nan_to_num(audio, nan=0.0, posinf=0.0, neginf=0.0)
+
+            # If the amplitude is astronomically large, consider this segment corrupt and skip it.
+            max_abs = float(np.max(np.abs(audio)))
+            if not np.isfinite(max_abs) or max_abs > 1000.0:
+                print(
+                    "[worker warning] audio segment looks corrupt (max_abs=%.4e), skipping"
+                    % max_abs,
+                )
+                time.sleep(0.1)
+                continue
+
+            # Optionally normalise if slightly >1.0, to keep within a reasonable range.
+            if max_abs > 1.0:
+                audio = audio / max_abs
+
             # Debug: basic stats of the captured audio block
             try:
                 print(

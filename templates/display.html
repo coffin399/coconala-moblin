@@ -56,12 +56,15 @@
         const fontSize = Number(s.fontSize) || 42;
         const lineHeight = Number(s.lineHeight) || 1.2;
         const align = s.align || "center";
-        // 最大行数: 設定がなければ 2 行をデフォルトとし、
-        // 保存されている場合はその値を優先する。
+        // 最大行数: 0 は「制限なし」、それ以外は数値。未設定時は 2 行をデフォルト。
         let maxLines = 2;
         if (s.maxLines !== undefined) {
           const parsed = Number(s.maxLines);
-          maxLines = Number.isNaN(parsed) ? 0 : parsed;
+          if (parsed === 0) {
+            maxLines = 0;
+          } else if (!Number.isNaN(parsed)) {
+            maxLines = parsed;
+          }
         }
         const color = s.color || "#ffffff";
         const padding = Number(s.padding) || 16;

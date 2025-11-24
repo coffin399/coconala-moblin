@@ -470,7 +470,12 @@
           fontSize: Number(els.fontSize.value) || 42,
           lineHeight: Number(els.lineHeight.value) / 10 || 1.2,
           align: els.align.value,
-          maxLines: Number(els.maxLines.value) || 0,
+          maxLines: (() => {
+            const raw = Number(els.maxLines.value);
+            if (raw === 0) return 0; // 明示的な「制限なし」
+            if (Number.isNaN(raw)) return 2; // 想定外の値は 2 行にフォールバック
+            return raw || 2; // それ以外はその値、もしくは 2 行
+          })(),
           color: els.color.value,
           shadow: els.shadow.value,
           background: els.background.value,
@@ -578,7 +583,10 @@
           if (!res.ok) throw new Error("HTTP " + res.status);
           const data = await res.json();
           const running = !!data.running;
-          // Stop ボタンだけ状態に応じて切り替え。Start は「開始 / 再起動」として常に押せるようにする。
+          // Start / Stop の有効・無効でワーカーの状態がわかるようにする。
+          // running=true  : Start=無効, Stop=有効
+          // running=false : Start=有効, Stop=無効
+          els.workerStart.disabled = running;
           els.workerStop.disabled = !running;
           const cfg = data.config || {};
           if (cfg.mode && els.mode) {
