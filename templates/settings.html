@@ -578,7 +578,7 @@
           if (!res.ok) throw new Error("HTTP " + res.status);
           const data = await res.json();
           const running = !!data.running;
-          els.workerStart.disabled = running;
+          // Stop ボタンだけ状態に応じて切り替え。Start は「開始 / 再起動」として常に押せるようにする。
           els.workerStop.disabled = !running;
           const cfg = data.config || {};
           if (cfg.mode && els.mode) {
