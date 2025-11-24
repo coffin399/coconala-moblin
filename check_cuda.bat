@@ -31,28 +31,28 @@ if errorlevel 1 goto :cuda_error
 
 echo.
 echo === CUDA CHECK PASSED ===
-echo このマシンでは faster-whisper を CUDA(GPU) モードで使える可能性があります。
-echo Web UI で 動作モード=GPU(CUDA) を選択して試してみてください。
+echo This machine seems able to run faster-whisper in CUDA (GPU) mode.
+echo Try selecting [Device mode = GPU (CUDA)] in the Web UI and start the worker.
 echo.
 goto :end
 
 :cuda_error
 echo.
 echo === CUDA CHECK FAILED ===
-echo 上のエラーメッセージを確認してください。
-echo 代表的な原因:
-echo   - 対応する NVIDIA ドライバが入っていない
-echo   - CUDA Toolkit がインストールされていない
-echo   - cuDNN (例: cudnn_ops64_9.dll) が PATH に入っていない
+echo Please review the error messages above.
+echo Common causes:
+echo   - Missing or incompatible NVIDIA driver
+echo   - CUDA Toolkit not installed
+echo   - cuDNN (e.g. cudnn_ops64_9.dll) not available on PATH
 echo.
-echo このままでもアプリは CPU モードで動作します。
-echo GPU を使いたい場合は、公式ドキュメントに従って CUDA / cuDNN をインストールしてください。
+echo The app will still run in CPU mode.
+echo If you want to use GPU, install CUDA and cuDNN according to the official documentation.
 echo.
 goto :end
 
 :error
 echo.
-echo セットアップ中にエラーが発生しました。上のメッセージを確認してください。
+echo An error occurred during setup. Please review the messages above.
 echo.
 
 :end
