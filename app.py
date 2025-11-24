@@ -1,6 +1,7 @@
 import argparse
 import threading
 import time
+import webbrowser
 from typing import Optional
 
 from flask import Flask, jsonify, redirect, render_template, url_for
@@ -124,6 +125,17 @@ def main() -> None:
         daemon=True,
     )
     worker.start()
+
+    # Open default browser to the settings page shortly after startup.
+    url = f"http://{args.host}:{args.port}/settings"
+
+    def _open_browser() -> None:
+        try:
+            webbrowser.open(url)
+        except Exception:  # noqa: BLE001
+            pass
+
+    threading.Timer(1.0, _open_browser).start()
 
     # Debug=False でできるだけ軽く。
     app.run(host=args.host, port=args.port, debug=False, threaded=True)
