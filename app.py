@@ -3,7 +3,7 @@ import threading
 import time
 from typing import Optional
 
-from flask import Flask, jsonify, render_template
+from flask import Flask, jsonify, redirect, render_template, url_for
 
 from audio_capture import record_block, DEFAULT_SAMPLE_RATE
 from stt_translate import create_model, translate_segment
@@ -62,8 +62,18 @@ def worker_loop(
 
 
 @app.route("/")
-def index() -> str:
-    return render_template("index.html")
+def root() -> str:
+    return redirect(url_for("settings"))
+
+
+@app.route("/settings")
+def settings() -> str:
+    return render_template("settings.html")
+
+
+@app.route("/display")
+def display() -> str:
+    return render_template("display.html")
 
 
 @app.route("/transcript")

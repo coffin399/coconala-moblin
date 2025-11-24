@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8" />
+    <title>moblin-smart-translation — Output</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <style>
+      :root {
+        color-scheme: dark;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        padding: 0;
+        background: transparent;
+        overflow: hidden;
+      }
+      #root {
+        width: 100vw;
+        height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      #text-box {
+        max-width: 96vw;
+        max-height: 96vh;
+        white-space: pre-wrap;
+        overflow: hidden;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="root">
+      <div id="text-box"></div>
+    </div>
+    <script>
+      const STORAGE_KEY = "mst_text_settings_v1";
+      const box = document.getElementById("text-box");
+
+      function loadSettings() {
+        try {
+          const raw = window.localStorage.getItem(STORAGE_KEY);
+          if (!raw) return null;
+          return JSON.parse(raw);
+        } catch {
+          return null;
+        }
+      }
+
+      function applySettings(text) {
+        const s = loadSettings() || {};
+
+        const fontSize = Number(s.fontSize) || 42;
+        const lineHeight = Number(s.lineHeight) || 1.2;
+        const align = s.align || "center";
+        const maxLines = Number(s.maxLines) || 0;
+        const color = s.color || "#ffffff";
+        const padding = Number(s.padding) || 16;
+
+        let family;
+        switch (s.fontFamily) {
+          case "mono":
+            family = 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace';
+            break;
+          case "serif":
+            family = '"Georgia", "Times New Roman", serif';
+            break;
+          case "sans":
+            family = 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
+            break;
+          default:
+            family = 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
+        }
+
+        let displayText = text || "";
+        if (maxLines > 0) {
+          const lines = displayText.split(/\r?\n/).filter((l) => l.trim() !== "");
+          const tail = lines.slice(-maxLines);
+          displayText = tail.join("\n");
+        }
+        box.textContent = displayText;
+
+        box.style.fontFamily = family;
+        box.style.fontSize = fontSize + "px";
+        box.style.lineHeight = lineHeight;
+        box.style.textAlign = align;
+        box.style.color = color;
+        box.style.padding = padding + "px";
+
+        const bg = s.background || "transparent";
+        if (bg === "transparent") {
+          box.style.background = "transparent";
+          box.style.backdropFilter = "none";
+        } else if (bg === "dark") {
+          box.style.background = "rgba(15,23,42,0.72)";
+          box.style.backdropFilter = "blur(18px)";
+        } else {
+          box.style.background = "#020617";
+          box.style.backdropFilter = "none";
+        }
+
+        if (s.shadow === "none") {
+          box.style.textShadow = "none";
+        } else {
+          box.style.textShadow = "0 0 8px rgba(0,0,0,0.9)";
+        }
+      }
+
+      async function pollTranscript() {
+        try {
+          const res = await fetch("/transcript", { cache: "no-store" });
+          if (!res.ok) throw new Error("HTTP " + res.status);
+          const data = await res.json();
+          applySettings(data.text || "");
+        } catch (err) {
+          console.error(err);
+        } finally {
+          setTimeout(pollTranscript, 1000);
+        }
+      }
+
+      applySettings("");
+      pollTranscript();
+    </script>
+  </body>
+</html>
