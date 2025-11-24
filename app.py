@@ -86,8 +86,16 @@ def worker_loop(
             if not np.isfinite(audio).all():
                 audio = np.nan_to_num(audio, nan=0.0, posinf=0.0, neginf=0.0)
 
-            # If the amplitude is astronomically large, consider this segment corrupt and skip it.
+            # Basic sanity checks on amplitude.
             max_abs = float(np.max(np.abs(audio)))
+            # Treat extremely small amplitudes as silence to avoid spurious
+            # transcriptions (e.g. translating background noise to "I'm sorry").
+            if np.isfinite(max_abs) and max_abs < 2e-3:
+                # Low enough that this is effectively silence; skip.
+                time.sleep(0.05)
+                continue
+
+            # If the amplitude is astronomically large, consider this segment corrupt and skip it.
             if not np.isfinite(max_abs) or max_abs > 1000.0:
                 print(
                     "[worker warning] audio segment looks corrupt (max_abs=%.4e), skipping"
