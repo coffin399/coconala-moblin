@@ -179,7 +179,7 @@
         border: 1px solid #1f2937;
         background: #020617;
         padding: 10px 12px;
-        overflow: hidden;
+        overflow-y: auto;
         white-space: pre-wrap;
       }
       .status-line {
@@ -524,12 +524,33 @@
         window.location.reload();
       }
 
+      async function clearTranscript() {
+        try {
+          const res = await fetch("/api/transcript/clear", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+          });
+          if (!res.ok) throw new Error("HTTP " + res.status);
+          els.preview.textContent = "";
+          els.statusLine.textContent = "テキストをクリアしました。";
+          logEvent("テキストをクリアしました。");
+        } catch (err) {
+          console.error(err);
+          els.statusLine.textContent = "テキストのクリアに失敗しました。コンソールを確認してください。";
+        }
+      }
+
       function applyToPreview(text) {
         const s = currentSettings();
         els.fontSizeValue.textContent = String(s.fontSize);
         els.lineHeightValue.textContent = s.lineHeight.toFixed(1);
 
-        const displayText = text || "";
+        let displayText = text || "";
+        if (s.maxLines > 0) {
+          const lines = displayText.split(/\r?\n/).filter((l) => l.trim() !== "");
+          const tail = lines.slice(-s.maxLines);
+          displayText = tail.join("\n");
+        }
         els.preview.textContent = displayText;
 
         let family;
@@ -552,14 +573,6 @@
         els.preview.style.textAlign = s.align;
         els.preview.style.color = s.color;
         els.preview.style.padding = s.padding + "px";
-
-        // 見た目の行数制限: フォントサイズと行間から高さを計算してクリップする。
-        if (s.maxLines > 0) {
-          const linePx = s.fontSize * s.lineHeight;
-          els.preview.style.maxHeight = linePx * s.maxLines + "px";
-        } else {
-          els.preview.style.maxHeight = ""; // 制限なし
-        }
 
         if (s.background === "transparent") {
           els.preview.style.background = "transparent";
