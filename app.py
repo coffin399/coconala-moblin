@@ -4,6 +4,7 @@ import time
 import webbrowser
 from typing import Optional
 
+import numpy as np
 import sounddevice as sd
 from flask import Flask, jsonify, redirect, render_template, request, url_for
 
@@ -53,21 +54,12 @@ def worker_loop(
     model = create_model(device_mode, quality=quality)
     sample_rate = DEFAULT_SAMPLE_RATE
 
-    # If a specific audio device index is provided, set it as the default
-    # input device for sounddevice. We then always record with device=None
-    # so that the behaviour matches the "use default device" path, which
-    # is known to work reliably on Windows.
-    if audio_device is not None:
-        try:
-            sd.default.device = (audio_device, audio_device)
-            print(f"[worker] using audio device index {audio_device} as default input")
-        except Exception as dev_exc:  # noqa: BLE001
-            print(f"[worker error] failed to set default device {audio_device}: {dev_exc!r}")
-            audio_device = None
-
     while not stop_event.is_set():
         try:
-            audio = record_block(segment_seconds, samplerate=sample_rate)
+            audio = record_block(segment_seconds, samplerate=sample_rate, device=audio_device)
+            # Sanitize audio to avoid NaNs / infs propagating into faster-whisper.
+            if not np.isfinite(audio).all():
+                audio = np.nan_to_num(audio, nan=0.0, posinf=1.0, neginf=-1.0)
             # Debug: basic stats of the captured audio block
             try:
                 print(
@@ -288,9 +280,6 @@ def parse_args():
 
 def main() -> None:
     args = parse_args()
-
-    # Start the initial worker with CLI defaults.
-    start_worker(args.device, args.audio_device, args.segment_seconds, args.quality, "translate", None)
 
     # Open default browser to the settings page shortly after startup.
     url = f"http://{args.host}:{args.port}/settings"
