@@ -25,8 +25,10 @@ def translate_segment(
     model: WhisperModel,
     audio: np.ndarray,
     sample_rate: int = 16000,
+    mode: str = "translate",
+    language: str | None = None,
 ) -> str:
-    """Run speech-to-text with translation to English for a single audio segment.
+    """Run speech-to-text for a single audio segment.
 
     Parameters
     ----------
@@ -36,15 +38,22 @@ def translate_segment(
         Float32 mono waveform.
     sample_rate: int
         Sample rate of the waveform.
+    mode: str
+        "translate" -> translate to English.
+        "transcribe" -> transcribe in the original language.
+    language: str | None
+        Source language code (e.g. "ja", "en"). "auto" or None = auto-detect.
     """
     if audio.size == 0:
         return ""
 
     # faster-whisper accepts numpy arrays directly.
+    task = "translate" if mode == "translate" else "transcribe"
+    lang_arg = None if language in (None, "", "auto") else language
     segments, _info = model.transcribe(
         audio,
-        task="translate",  # always translate to English
-        language=None,  # auto-detect source language
+        task=task,
+        language=lang_arg,  # auto-detect if None
         beam_size=1,
         best_of=1,
         vad_filter=True,

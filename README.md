@@ -23,7 +23,7 @@ pip install -r requirements.txt
 python -m sounddevice
 ```
 
-## 起動方法
+## 起動方法（Web UI）
 
 CPU モード（おすすめ）:
 
@@ -54,8 +54,47 @@ python app.py --device cpu --audio-device 3 --segment-seconds 6 --port 8000
 2. ブラウザで `http://127.0.0.1:5000/` （または指定ポート）を開く
 3. VB-Cable に流れている音声が自動的に英語に翻訳されて表示されます
 
+## 起動方法（GUI 版）
+
+Tkinter ベースの GUI 版ランチャーもあります。
+
+```bash
+python gui_app.py
+```
+
+GUI から以下を設定できます。
+
+- Device: `cpu` / `cuda`
+- Mode: `translate`（英語に翻訳） / `transcribe`（元の言語で書き起こし）
+- Audio device index: `python -m sounddevice` で確認した入力デバイス番号（空欄なら OS 既定）
+- Segment seconds: 1 チャンクの長さ（短いほど遅延は減るが CPU 負荷は増える）
+
+「Start」を押すとモデルをロードして、VB-Cable からの音声をリアルタイムに処理します。
+
+## Nuitka で exe にビルド
+
+Windows で Python アプリを単一 exe にする例です（簡易例）。
+
+1. Nuitka をインストール
+
+```bash
+pip install nuitka
+```
+
+2. GUI 版を exe 化（コンソール非表示）
+
+```bash
+python -m nuitka \
+  --onefile \
+  --windows-disable-console \
+  --enable-plugin=tk-inter \
+  gui_app.py
+```
+
+生成された `gui_app.exe` を実行すると、Python なしで GUI が起動します。
+
 ## メモ
 
 - モデルは `faster-whisper` の **tiny** を使用
-- 翻訳タスク (`task="translate"`) を使って常に英語に翻訳
+- 翻訳タスク (`task="translate"`) を使って常に英語に翻訳（GUI の `Mode=translate` の場合）
 - 精度よりも軽さ・リアルタイム性を優先した設定です
