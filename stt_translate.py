@@ -49,13 +49,36 @@ def create_model(device_mode: str = "cpu", quality: str = "normal") -> WhisperMo
         f"device={device!r} compute_type={compute_type!r} cache_root={str(cache_root)!r}"
     )
 
-    model = WhisperModel(
-        model_size,
-        device=device,
-        compute_type=compute_type,
-        download_root=str(cache_root),
-    )
-    return model
+    try:
+        model = WhisperModel(
+            model_size,
+            device=device,
+            compute_type=compute_type,
+            download_root=str(cache_root),
+        )
+        return model
+    except Exception as exc:  # noqa: BLE001
+        # If CUDA initialisation fails (missing cudnn DLL, invalid handle, etc.),
+        # fall back to CPU so the process does not crash.
+        if device == "cuda":
+            print(
+                f"[model warning] CUDA initialisation failed ({exc!r}); "
+                "falling back to CPU (int8).",
+            )
+            fallback_device = "cpu"
+            fallback_compute_type = "int8"
+            print(
+                f"[model] retrying on device={fallback_device!r} "
+                f"compute_type={fallback_compute_type!r}",
+            )
+            model = WhisperModel(
+                model_size,
+                device=fallback_device,
+                compute_type=fallback_compute_type,
+                download_root=str(cache_root),
+            )
+            return model
+        raise
 
 
 def translate_segment(
