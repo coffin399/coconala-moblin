@@ -25,21 +25,28 @@
         justify-content: center;
         padding-bottom: 4vh;
       }
-      #text-box {
+      #viewport {
         max-width: 96vw;
-        max-height: 96vh;
+        overflow: hidden; /* hide lines above the visible window */
+        display: flex;
+        align-items: flex-end; /* keep latest lines at the bottom of the window */
+      }
+      #text-box {
+        width: 100%;
         white-space: pre-wrap;
-        overflow: hidden;
       }
     </style>
   </head>
   <body>
     <div id="root">
-      <div id="text-box"></div>
+      <div id="viewport">
+        <div id="text-box"></div>
+      </div>
     </div>
     <script>
       const STORAGE_KEY = "mst_text_settings_v1";
       const box = document.getElementById("text-box");
+      const viewport = document.getElementById("viewport");
 
       function loadSettings() {
         try {
@@ -77,20 +84,47 @@
             family = 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
         }
 
-        let displayText = text || "";
-        if (maxLines > 0) {
-          const lines = displayText.split(/\r?\n/).filter((l) => l.trim() !== "");
-          const tail = lines.slice(-maxLines);
-          displayText = tail.join("\n");
-        }
-        box.textContent = displayText;
-
         box.style.fontFamily = family;
         box.style.fontSize = fontSize + "px";
         box.style.lineHeight = lineHeight;
         box.style.textAlign = align;
         box.style.color = color;
         box.style.padding = padding + "px";
+
+        // Viewport height: roughly 3 lines of text + vertical padding.
+        // This ensures that visually only about 3 lines are visible; any
+        // older content above is clipped by the viewport.
+        const linePx = fontSize * lineHeight;
+        const viewportHeight = linePx * maxLines + padding * 2;
+        viewport.style.height = `${viewportHeight}px`;
+
+        // Convert the raw transcript into short visual slots so that
+        // we can hard-cap the visible rows to maxLines even when a
+        // single logical line is very long. Then iteratively choose
+        // tail slots until the rendered height fits in the viewport.
+        const raw = text || "";
+        const logicalLines = raw.split(/\r?\n/).filter((l) => l.trim() !== "");
+        const slots = [];
+        const charsPerSlot = 48; // approx width for large subtitles
+        for (const ln of logicalLines) {
+          let rest = ln.trim();
+          while (rest.length > 0) {
+            slots.push(rest.slice(0, charsPerSlot));
+            rest = rest.slice(charsPerSlot);
+          }
+        }
+
+        let selected = [];
+        for (let i = slots.length - 1; i >= 0; i -= 1) {
+          selected.unshift(slots[i]);
+          box.textContent = selected.join("\n");
+          const rect = box.getBoundingClientRect();
+          if (rect.height > viewportHeight || selected.length >= maxLines) {
+            selected.shift();
+            break;
+          }
+        }
+        box.textContent = selected.join("\n");
 
         const bg = s.background || "transparent";
         if (bg === "transparent") {

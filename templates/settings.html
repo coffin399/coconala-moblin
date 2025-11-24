@@ -523,12 +523,19 @@
         els.fontSizeValue.textContent = String(s.fontSize);
         els.lineHeightValue.textContent = s.lineHeight.toFixed(1);
 
-        let displayText = text || "";
-        if (s.maxLines > 0) {
-          const lines = displayText.split(/\r?\n/).filter((l) => l.trim() !== "");
-          const tail = lines.slice(-s.maxLines);
-          displayText = tail.join("\n");
+        const raw = text || "";
+        const logicalLines = raw.split(/\r?\n/).filter((l) => l.trim() !== "");
+        const slots = [];
+        const charsPerSlot = 48; // keep in sync with display.html
+        for (const ln of logicalLines) {
+          let rest = ln.trim();
+          while (rest.length > 0) {
+            slots.push(rest.slice(0, charsPerSlot));
+            rest = rest.slice(charsPerSlot);
+          }
         }
+        const tailSlots = s.maxLines > 0 ? slots.slice(-s.maxLines) : slots;
+        const displayText = tailSlots.join("\n");
         els.preview.textContent = displayText;
 
         let family;
