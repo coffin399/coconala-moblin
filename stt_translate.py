@@ -204,22 +204,21 @@ def translate_segment(
     # Stage 1: kotoba-whisper for Japanese ASR.
     # Always run in "transcribe" mode with language="ja" to leverage
     # the Japanese-specialised training.
+    #
+    # NOTE: We keep the call simple and disable VAD so that each audio
+    # segment is always transcribed; otherwise short silences can cause
+    # "no speech" decisions and the user experience feels like it
+    # "stops listening".
     segments, _info = model.transcribe(
         audio,
         task="transcribe",
         language="ja",
         beam_size=beam_size,
         best_of=best_of,
-        vad_filter=True,
+        vad_filter=False,
         word_timestamps=False,
         temperature=0.0,
-        initial_prompt=None,
         condition_on_previous_text=False,
-        compression_ratio_threshold=2.4,
-        log_prob_threshold=-1.0,
-        no_speech_threshold=0.6,
-        length_penalty=1.0,
-        repetition_penalty=1.0,
     )
 
     ja_texts: list[str] = []

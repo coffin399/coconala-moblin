@@ -111,6 +111,20 @@
           box.style.backdropFilter = "none";
         }
 
+        // 見た目の行数を maxLines にクランプする。
+        // OBS のブラウザソースは Chromium 系なので -webkit-line-clamp が使える想定。
+        if (maxLines > 0) {
+          box.style.display = "-webkit-box";
+          box.style.webkitBoxOrient = "vertical";
+          box.style.webkitLineClamp = String(maxLines);
+          box.style.overflow = "hidden";
+        } else {
+          box.style.display = "block";
+          box.style.webkitBoxOrient = "";
+          box.style.webkitLineClamp = "";
+          box.style.overflow = "hidden";
+        }
+
         if (s.shadow === "none") {
           box.style.textShadow = "none";
         } else {
