@@ -58,7 +58,7 @@ def worker_loop(
                 transcript_buffer.append(text)
         except Exception as exc:  # noqa: BLE001
             # Keep going even if one segment fails.
-            transcript_buffer.append(f"[worker error: {exc!r}]")
+            print(f"[worker error] {exc!r}")
             time.sleep(1.0)
 
 

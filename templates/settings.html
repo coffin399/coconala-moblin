@@ -231,32 +231,32 @@
         <div class="brand-mark"><div class="brand-mark-inner"></div></div>
         <div>
           <h1>moblin-smart-translation</h1>
-          <div class="sub">Web control · Settings</div>
+          <div class="sub">Web コントロール · 設定</div>
         </div>
       </div>
       <nav class="nav-tabs">
-        <a class="nav-tab active" href="/settings">Text settings</a>
-        <a class="nav-tab" href="/display" target="_blank">Open output tab</a>
+        <a class="nav-tab active" href="/settings">テキスト設定</a>
+        <a class="nav-tab" href="/display" target="_blank">出力タブを開く</a>
       </nav>
     </header>
     <main>
-      <section class="panel" aria-label="Text settings">
-        <div class="panel-title">Text settings</div>
-        <div class="panel-subtitle">Adjust how subtitles are rendered in the output tab.</div>
+      <section class="panel" aria-label="テキスト設定">
+        <div class="panel-title">テキスト設定</div>
+        <div class="panel-subtitle">出力タブでの字幕の見た目を調整します。</div>
 
         <div class="field">
-          <label class="field-label">Font family</label>
+          <label class="field-label">フォントファミリー</label>
           <select id="font-family">
-            <option value="system-ui">System UI</option>
-            <option value="sans">Sans-serif</option>
-            <option value="serif">Serif</option>
-            <option value="mono">Monospace</option>
+            <option value="system-ui">システム (System UI)</option>
+            <option value="sans">サンセリフ (Sans-serif)</option>
+            <option value="serif">セリフ (Serif)</option>
+            <option value="mono">等幅 (Monospace)</option>
           </select>
         </div>
 
         <div class="field">
           <label class="field-label">
-            Font size
+            フォントサイズ
             <span class="help"><span id="font-size-value">42</span> px</span>
           </label>
           <input id="font-size" type="range" min="18" max="72" value="42" />
@@ -264,7 +264,7 @@
 
         <div class="field">
           <label class="field-label">
-            Line height
+            行間
             <span class="help"><span id="line-height-value">1.2</span>x</span>
           </label>
           <input id="line-height" type="range" min="10" max="20" value="12" />
@@ -272,17 +272,17 @@
 
         <div class="field row-inline">
           <div>
-            <label class="field-label">Alignment</label>
+            <label class="field-label">揃え位置</label>
             <select id="align">
-              <option value="left">Left</option>
-              <option value="center">Center</option>
-              <option value="right">Right</option>
+              <option value="left">左寄せ</option>
+              <option value="center">中央揃え</option>
+              <option value="right">右寄せ</option>
             </select>
           </div>
           <div>
-            <label class="field-label">Max lines</label>
+            <label class="field-label">最大行数</label>
             <select id="max-lines">
-              <option value="0">Unlimited</option>
+              <option value="0">制限なし</option>
               <option value="2">2</option>
               <option value="3">3</option>
               <option value="4">4</option>
@@ -293,51 +293,51 @@
 
         <div class="field row-inline">
           <div>
-            <label class="field-label">Text color</label>
+            <label class="field-label">文字色</label>
             <input id="color" type="color" value="#ffffff" />
           </div>
           <div>
-            <label class="field-label">Shadow</label>
+            <label class="field-label">影</label>
             <select id="shadow">
-              <option value="soft">Soft</option>
-              <option value="none">None</option>
+              <option value="soft">あり</option>
+              <option value="none">なし</option>
             </select>
           </div>
         </div>
 
         <div class="field row-inline">
           <div>
-            <label class="field-label">Background</label>
+            <label class="field-label">背景</label>
             <select id="background">
-              <option value="transparent">Transparent</option>
-              <option value="dark">Dark blur</option>
-              <option value="solid">Solid dark</option>
+              <option value="transparent">透過</option>
+              <option value="dark">暗め + ぼかし</option>
+              <option value="solid">暗め（べた塗り）</option>
             </select>
           </div>
           <div>
-            <label class="field-label">Padding (px)</label>
+            <label class="field-label">余白 (px)</label>
             <input id="padding" type="text" value="16" />
           </div>
         </div>
 
         <div class="field">
           <label class="field-label">
-            OBS text file path
-            <span class="help">Optional; browser source can still use /display directly.</span>
+            OBS 用テキストファイルパス
+            <span class="help">任意。ブラウザソースで /display を直接使うこともできます。</span>
           </label>
           <input id="obs-path" type="text" placeholder="obs_text_output.txt" />
         </div>
 
         <div class="cta-row">
-          <button class="btn secondary" id="reset-btn">Reset</button>
-          <button class="btn" id="save-btn">Save</button>
+          <button class="btn secondary" id="reset-btn">リセット</button>
+          <button class="btn" id="save-btn">保存</button>
         </div>
       </section>
 
-      <section class="panel" aria-label="Live preview">
+      <section class="panel" aria-label="ライブプレビュー">
         <div class="preview-header">
-          <div class="preview-label">Live preview</div>
-          <span class="badge-live" id="status-pill">Connecting…</span>
+          <div class="preview-label">ライブプレビュー</div>
+          <span class="badge-live" id="status-pill">接続中…</span>
         </div>
         <div id="preview-box"></div>
         <div class="status-line" id="status-line"></div>
@@ -410,7 +410,7 @@
       function saveSettings() {
         const s = currentSettings();
         window.localStorage.setItem(STORAGE_KEY, JSON.stringify(s));
-        els.statusLine.textContent = "Settings saved (shared with /display).";
+        els.statusLine.textContent = "設定を保存しました（/display と共有されます）。";
       }
 
       function resetSettings() {
@@ -476,16 +476,16 @@
           if (!res.ok) throw new Error("HTTP " + res.status);
           const data = await res.json();
           applyToPreview(data.text || "");
-          els.statusPill.textContent = "Live";
+          els.statusPill.textContent = "受信中";
           els.statusPill.style.borderColor = "#22c55e55";
           els.statusPill.style.backgroundColor = "#16a34a22";
-          els.statusLine.textContent = "Receiving transcript from backend.";
+          els.statusLine.textContent = "バックエンドから字幕テキストを受信しています。";
         } catch (err) {
           console.error(err);
-          els.statusPill.textContent = "No signal";
+          els.statusPill.textContent = "シグナルなし";
           els.statusPill.style.borderColor = "#f97316aa";
           els.statusPill.style.backgroundColor = "#7c2d12aa";
-          els.statusLine.textContent = "Waiting for /transcript … is app.py running?";
+          els.statusLine.textContent = "/transcript を待機中… app.py は起動していますか？";
         } finally {
           setTimeout(pollTranscript, 1000);
         }

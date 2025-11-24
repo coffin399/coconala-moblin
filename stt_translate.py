@@ -112,7 +112,6 @@ def translate_segment(
         word_timestamps=False,
         temperature=0.0,
         patience=0,
-        suppress_tokens="-1",
         initial_prompt=None,
         condition_on_previous_text=False,
         compression_ratio_threshold=2.4,
