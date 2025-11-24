@@ -85,19 +85,22 @@ def create_model(device_mode: str = "cpu", quality: str = "normal") -> WhisperMo
 
 
 _ja_en_translator: Optional[ctranslate2.Translator] = None
-_ja_en_sp: Optional[spm.SentencePieceProcessor] = None
+_ja_en_sp_src: Optional[spm.SentencePieceProcessor] = None
+_ja_en_sp_tgt: Optional[spm.SentencePieceProcessor] = None
 
 
-def _ensure_ja_en_translator(device: str = "cpu") -> tuple[ctranslate2.Translator, spm.SentencePieceProcessor]:
+def _ensure_ja_en_translator(
+    device: str = "cpu",
+) -> tuple[ctranslate2.Translator, spm.SentencePieceProcessor, spm.SentencePieceProcessor]:
     """Lazily download and load the ja→en CTranslate2 model.
 
     Uses entai2965/sugoi-v4-ja-en-ctranslate2 from Hugging Face Hub and
     caches it under the current Python environment (e.g. .venv/models/ctranslate2).
     """
 
-    global _ja_en_translator, _ja_en_sp
-    if _ja_en_translator is not None and _ja_en_sp is not None:
-        return _ja_en_translator, _ja_en_sp
+    global _ja_en_translator, _ja_en_sp_src, _ja_en_sp_tgt
+    if _ja_en_translator is not None and _ja_en_sp_src is not None and _ja_en_sp_tgt is not None:
+        return _ja_en_translator, _ja_en_sp_src, _ja_en_sp_tgt
 
     env_root = Path(sys.prefix)
     base_dir = env_root / "models" / "ctranslate2" / "sugoi-v4-ja-en-ctranslate2"
@@ -110,13 +113,20 @@ def _ensure_ja_en_translator(device: str = "cpu") -> tuple[ctranslate2.Translato
             local_dir_use_symlinks=False,
         )
 
-    sp_model_path = base_dir / "spm" / "spm.model"
-    if not sp_model_path.exists():
-        raise RuntimeError(f"sentencepiece model not found at {sp_model_path}")
+    sp_dir = base_dir / "spm"
+    src_path = sp_dir / "spm.ja.nopretok.model"
+    tgt_path = sp_dir / "spm.en.nopretok.model"
+    if not src_path.exists() or not tgt_path.exists():
+        raise RuntimeError(
+            "sentencepiece models not found; expected "
+            f"{src_path} and {tgt_path}",
+        )
 
-    print(f"[ja-en] loading SentencePiece model from {sp_model_path}")
-    sp = spm.SentencePieceProcessor()
-    sp.load(str(sp_model_path))
+    print(f"[ja-en] loading SentencePiece models from {src_path} and {tgt_path}")
+    sp_src = spm.SentencePieceProcessor()
+    sp_src.load(str(src_path))
+    sp_tgt = spm.SentencePieceProcessor()
+    sp_tgt.load(str(tgt_path))
 
     # CTranslate2 Translator can run on CPU; we keep that as default for safety.
     ct_device = "cpu" if device not in ("cuda",) else "cuda"
@@ -124,8 +134,9 @@ def _ensure_ja_en_translator(device: str = "cpu") -> tuple[ctranslate2.Translato
     translator = ctranslate2.Translator(str(base_dir), device=ct_device)
 
     _ja_en_translator = translator
-    _ja_en_sp = sp
-    return translator, sp
+    _ja_en_sp_src = sp_src
+    _ja_en_sp_tgt = sp_tgt
+    return translator, sp_src, sp_tgt
 
 
 def _ja_to_en(text: str, device: str = "cpu") -> str:
@@ -135,10 +146,10 @@ def _ja_to_en(text: str, device: str = "cpu") -> str:
     if not text:
         return ""
 
-    translator, sp = _ensure_ja_en_translator(device=device)
+    translator, sp_src, sp_tgt = _ensure_ja_en_translator(device=device)
 
-    # Tokenize to subwords.
-    pieces = sp.encode(text, out_type=str)
+    # Tokenize to subwords (source side = Japanese).
+    pieces = sp_src.encode(text, out_type=str)
     # CTranslate2 expects a list-of-list (batch of token sequences).
     results = translator.translate_batch(
         [pieces],
@@ -148,10 +159,10 @@ def _ja_to_en(text: str, device: str = "cpu") -> str:
     if not results or not results[0].hypotheses:
         return ""
     tokens = results[0].hypotheses[0]
-    # SentencePiece decode from tokens back to string.
+    # SentencePiece decode from tokens back to string (target side = English).
     # Tokens may contain special markers; filter them lightly.
     clean_tokens = [t for t in tokens if not t.startswith("<")]
-    return sp.decode(clean_tokens).strip()
+    return sp_tgt.decode(clean_tokens).strip()
 
 
 def translate_segment(
