@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8" />
+    <title>moblin-smart-translation</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <style>
+      body {
+        margin: 0;
+        padding: 0;
+        font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        background: #0f172a;
+        color: #e5e7eb;
+        display: flex;
+        flex-direction: column;
+        min-height: 100vh;
+      }
+      header {
+        padding: 12px 20px;
+        background: #020617;
+        border-bottom: 1px solid #1f2937;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+      }
+      h1 {
+        margin: 0;
+        font-size: 16px;
+        font-weight: 600;
+        letter-spacing: 0.03em;
+        text-transform: uppercase;
+      }
+      .badge {
+        font-size: 11px;
+        padding: 2px 8px;
+        border-radius: 999px;
+        border: 1px solid #4b5563;
+        color: #9ca3af;
+      }
+      main {
+        flex: 1;
+        padding: 16px;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+      #transcript {
+        flex: 1;
+        padding: 12px 14px;
+        border-radius: 8px;
+        border: 1px solid #1f2937;
+        background: #020617;
+        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+        white-space: pre-wrap;
+        overflow-y: auto;
+        font-size: 13px;
+        line-height: 1.5;
+      }
+      .status {
+        font-size: 12px;
+        color: #9ca3af;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      }
+      .dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 999px;
+        background: #22c55e;
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <h1>moblin-smart-translation</h1>
+      <span class="badge">CPU-first / tiny model</span>
+    </header>
+    <main>
+      <div class="status">
+        <span class="dot" id="status-dot"></span>
+        <span id="status-text">Listening via VB-Cable &amp; translating to English...</span>
+      </div>
+      <div id="transcript"></div>
+    </main>
+
+    <script>
+      const transcriptEl = document.getElementById("transcript");
+      const statusDot = document.getElementById("status-dot");
+      const statusText = document.getElementById("status-text");
+
+      async function pollTranscript() {
+        try {
+          const res = await fetch("/transcript", { cache: "no-store" });
+          if (!res.ok) throw new Error("HTTP " + res.status);
+          const data = await res.json();
+          transcriptEl.textContent = data.text || "";
+
+          statusDot.style.background = "#22c55e";
+          statusText.textContent = "Streaming from VB-Cable → translated text";
+        } catch (err) {
+          console.error(err);
+          statusDot.style.background = "#f97316";
+          statusText.textContent = "Waiting for server... (is app.py running?)";
+        } finally {
+          setTimeout(pollTranscript, 1000);
+        }
+      }
+
+      pollTranscript();
+    </script>
+  </body>
+</html>
