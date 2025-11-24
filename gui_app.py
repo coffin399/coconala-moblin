@@ -4,6 +4,7 @@ from typing import Optional
 
 import tkinter as tk
 from tkinter import ttk, messagebox
+import sounddevice as sd
 
 from audio_capture import record_block, DEFAULT_SAMPLE_RATE
 from stt_translate import create_model, translate_segment
@@ -41,6 +42,8 @@ class App(tk.Tk):
         self._stop_event = threading.Event()
         self._buffer = TranscriptBuffer()
         self._model: Optional[object] = None
+        self._audio_devices: list[tuple[int, str]] = []
+        self._last_obs_text: str = ""
 
         self._build_ui()
         self._poll_buffer()
@@ -88,18 +91,25 @@ class App(tk.Tk):
         )
         self.language_combo.grid(row=0, column=5, sticky=tk.W, padx=(0, 12))
 
-        # Audio device index
-        ttk.Label(controls, text="Audio device index (optional):").grid(
+        # Audio device selection
+        ttk.Label(controls, text="Audio device:").grid(
             row=1,
             column=0,
             sticky=tk.W,
             padx=(0, 4),
             pady=(4, 0),
-            columnspan=2,
         )
-        self.audio_device_var = tk.StringVar(value="")
-        self.audio_entry = ttk.Entry(controls, textvariable=self.audio_device_var, width=10)
-        self.audio_entry.grid(row=1, column=2, sticky=tk.W, pady=(4, 0))
+        self.audio_device_var = tk.StringVar(value="(default device)")
+        self.audio_device_combo = ttk.Combobox(
+            controls,
+            textvariable=self.audio_device_var,
+            state="readonly",
+            width=32,
+        )
+        self.audio_device_combo.grid(row=1, column=1, sticky=tk.W, pady=(4, 0), columnspan=2)
+
+        self.refresh_button = ttk.Button(controls, text="Refresh", command=self._refresh_audio_devices)
+        self.refresh_button.grid(row=1, column=3, padx=(4, 0), pady=(4, 0))
 
         # Segment seconds
         ttk.Label(controls, text="Segment seconds:").grid(
@@ -131,6 +141,17 @@ class App(tk.Tk):
         )
         self.quality_combo.grid(row=1, column=6, sticky=tk.W, pady=(4, 0))
 
+        # OBS text file output
+        obs_frame = ttk.Frame(root)
+        obs_frame.pack(fill=tk.X, pady=(0, 4))
+        self.obs_enabled_var = tk.BooleanVar(value=True)
+        self.obs_check = ttk.Checkbutton(obs_frame, text="Write OBS text file", variable=self.obs_enabled_var)
+        self.obs_check.pack(side=tk.LEFT)
+        ttk.Label(obs_frame, text="Path:").pack(side=tk.LEFT, padx=(8, 4))
+        self.obs_path_var = tk.StringVar(value="obs_text_output.txt")
+        self.obs_path_entry = ttk.Entry(obs_frame, textvariable=self.obs_path_var, width=40)
+        self.obs_path_entry.pack(side=tk.LEFT, fill=tk.X, expand=True)
+
         # Start / Stop buttons
         self.start_button = ttk.Button(controls, text="Start", command=self.start_worker)
         self.start_button.grid(row=0, column=6, padx=(16, 4))
@@ -148,6 +169,8 @@ class App(tk.Tk):
         self.text_widget.pack(fill=tk.BOTH, expand=True)
         self.text_widget.configure(state=tk.DISABLED)
 
+        self._refresh_audio_devices()
+
     def start_worker(self) -> None:
         if self._worker_thread and self._worker_thread.is_alive():
             return
@@ -163,15 +186,17 @@ class App(tk.Tk):
             messagebox.showerror("Error", "Segment seconds must be a number.")
             return
 
+        # Resolve selected audio device index
         audio_device: Optional[int]
-        audio_text = self.audio_device_var.get().strip()
-        if audio_text == "":
+        selected_device = self.audio_device_var.get().strip()
+        if selected_device == "" or selected_device.startswith("("):
             audio_device = None
         else:
             try:
-                audio_device = int(audio_text)
-            except ValueError:
-                messagebox.showerror("Error", "Audio device index must be an integer or empty.")
+                index_str = selected_device.split(":", 1)[0]
+                audio_device = int(index_str)
+            except Exception:
+                messagebox.showerror("Error", "Invalid audio device selection.")
                 return
 
         self._stop_event.clear()
@@ -201,6 +226,8 @@ class App(tk.Tk):
                     if text:
                         self._buffer.append(text)
             except Exception as exc:  # noqa: BLE001
+                if self._stop_event.is_set():
+                    return
                 self.status_var.set(f"Error: {exc!r}")
             finally:
                 self._set_running_state(running=False)
@@ -218,7 +245,8 @@ class App(tk.Tk):
         self.mode_combo.configure(state="readonly" if not running else "disabled")
         self.language_combo.configure(state="readonly" if not running else "disabled")
         self.quality_combo.configure(state="readonly" if not running else "disabled")
-        self.audio_entry.configure(state=state)
+        self.audio_device_combo.configure(state="readonly" if not running else "disabled")
+        self.refresh_button.configure(state=state)
         self.segment_entry.configure(state=state)
         self.start_button.configure(state=tk.DISABLED if running else tk.NORMAL)
         self.stop_button.configure(state=tk.NORMAL if running else tk.DISABLED)
@@ -229,7 +257,35 @@ class App(tk.Tk):
         self.text_widget.delete("1.0", tk.END)
         self.text_widget.insert(tk.END, text)
         self.text_widget.configure(state=tk.DISABLED)
+        if self.obs_enabled_var.get():
+            path = self.obs_path_var.get().strip() or "obs_text_output.txt"
+            if text != self._last_obs_text:
+                self._last_obs_text = text
+                try:
+                    with open(path, "w", encoding="utf-8") as f:
+                        f.write(text)
+                except Exception:
+                    pass
         self.after(500, self._poll_buffer)
+
+    def _refresh_audio_devices(self) -> None:
+        try:
+            devices = sd.query_devices()
+            input_devices: list[tuple[int, str]] = []
+            for idx, dev in enumerate(devices):
+                try:
+                    if dev.get("max_input_channels", 0) > 0:
+                        name = str(dev.get("name", f"Device {idx}"))
+                        input_devices.append((idx, name))
+                except Exception:
+                    continue
+            self._audio_devices = input_devices
+            values = ["(default device)"] + [f"{idx}: {name}" for idx, name in input_devices]
+            self.audio_device_combo["values"] = values
+            if values:
+                self.audio_device_combo.current(0)
+        except Exception as exc:  # noqa: BLE001
+            messagebox.showwarning("Warning", f"Failed to query audio devices: {exc!r}")
 
 
 def main() -> None:

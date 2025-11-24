@@ -72,11 +72,25 @@ GUI から以下を設定できます。
 
 - Device: `cpu` / `cuda`
 - Mode: `translate`（英語に翻訳） / `transcribe`（元の言語で書き起こし）
-- Audio device index: `python -m sounddevice` で確認した入力デバイス番号（空欄なら OS 既定）
+- Audio device: 入力デバイスの一覧（VB-Cable を選択）
 - Segment seconds: 1 チャンクの長さ（短いほど遅延は減るが CPU 負荷は増える）
 - Quality: `ultra_low` / `low` / `normal` / `high` / `ultra_high`（速度と精度のプリセット）
+- Write OBS text file: ON の場合、テキストをファイルに書き出し
+  - デフォルトパス: `obs_text_output.txt`（プロジェクトフォルダ直下）
 
 「Start」を押すとモデルをロードして、VB-Cable からの音声をリアルタイムに処理します。
+
+### OBS へのテキスト出力
+
+GUI 版で "Write OBS text file" を有効にすると、現在のテキストを指定パスのファイルに書き出します（デフォルト: `obs_text_output.txt`）。
+
+OBS 側では:
+
+1. ソースを追加 → 「テキスト (GDI+)」
+2. 「ファイルから読み込む」を有効化
+3. ファイルパスに `obs_text_output.txt`（または指定したパス）を選択
+
+これで、このアプリが更新するテキストが OBS 上にも反映されます。
 
 ## Nuitka で exe にビルド
 
