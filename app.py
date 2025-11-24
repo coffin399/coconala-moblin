@@ -1,4 +1,5 @@
 import argparse
+import logging
 import threading
 import time
 import webbrowser
@@ -13,6 +14,22 @@ from stt_translate import create_model, translate_segment
 
 
 app = Flask(__name__)
+
+
+class _SuppressTranscriptLogFilter(logging.Filter):
+    """Filter out Werkzeug access log lines for /transcript polling.
+
+    The settings page polls /transcript every秒, which clutters the console.
+    This filter keeps other access logs intact while hiding those lines.
+    """
+
+    def filter(self, record: logging.LogRecord) -> bool:  # noqa: D401
+        msg = record.getMessage()
+        # Return False to suppress records containing the /transcript path.
+        return "/transcript" not in msg
+
+
+logging.getLogger("werkzeug").addFilter(_SuppressTranscriptLogFilter())
 
 
 class TranscriptBuffer:
