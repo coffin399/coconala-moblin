@@ -1,4 +1,5 @@
 from pathlib import Path
+import sys
 
 import numpy as np
 from faster_whisper import WhisperModel
@@ -36,9 +37,10 @@ def create_model(device_mode: str = "cpu", quality: str = "normal") -> WhisperMo
         # Fallback to tiny to avoid heavy models by accident.
         model_size = "tiny"
 
-    # Use a stable cache directory so Nuitka onefile builds do not rely on
-    # temporary ONEFILE extraction paths. This works both for Python and exe.
-    cache_root = Path.home() / ".cache" / "moblin-smart-translation" / "models"
+    # Use a cache directory under the current Python environment so that
+    # models stay inside the venv (e.g. .venv/models/faster-whisper).
+    env_root = Path(sys.prefix)
+    cache_root = env_root / "models" / "faster-whisper"
     cache_root.mkdir(parents=True, exist_ok=True)
 
     model = WhisperModel(
@@ -111,7 +113,6 @@ def translate_segment(
         vad_filter=True,
         word_timestamps=False,
         temperature=0.0,
-        patience=0,
         initial_prompt=None,
         condition_on_previous_text=False,
         compression_ratio_threshold=2.4,
