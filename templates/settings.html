@@ -90,6 +90,7 @@
           grid-template-columns: minmax(0, 1fr);
         }
       }
+
       .panel {
         border-radius: 14px;
         border: 1px solid rgba(15, 23, 42, 0.9);
@@ -402,6 +403,9 @@
         </div>
         <div id="preview-box"></div>
         <div class="status-line" id="status-line"></div>
+        <div class="cta-row" style="justify-content: flex-start; margin-top: 4px;">
+          <button class="btn secondary" id="clear-btn">テキストをクリア</button>
+        </div>
         <div class="pill-row">
           <span class="pill">/settings</span>
           <span class="pill">/display</span>
@@ -433,6 +437,7 @@
         audioDevice: document.getElementById("audio-device"),
         workerStart: document.getElementById("worker-start-btn"),
         workerStop: document.getElementById("worker-stop-btn"),
+        clearBtn: document.getElementById("clear-btn"),
         preview: document.getElementById("preview-box"),
         statusPill: document.getElementById("status-pill"),
         statusLine: document.getElementById("status-line"),
@@ -707,6 +712,10 @@
       els.workerStop.addEventListener("click", (e) => {
         e.preventDefault();
         stopWorkerUi();
+      });
+      els.clearBtn.addEventListener("click", (e) => {
+        e.preventDefault();
+        clearTranscript();
       });
 
       loadSettings();

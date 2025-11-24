@@ -32,6 +32,10 @@ class TranscriptBuffer:
         with self._lock:
             return self._text
 
+    def clear(self) -> None:
+        with self._lock:
+            self._text = ""
+
 
 transcript_buffer = TranscriptBuffer()
 
@@ -168,6 +172,13 @@ def display() -> str:
 @app.route("/transcript")
 def get_transcript():  # type: ignore[override]
     return jsonify({"text": transcript_buffer.get()})
+
+
+@app.route("/api/transcript/clear", methods=["POST"])
+def clear_transcript():  # type: ignore[override]
+    """Clear the current transcript text buffer."""
+    transcript_buffer.clear()
+    return jsonify({"ok": True})
 
 
 @app.route("/api/devices")
