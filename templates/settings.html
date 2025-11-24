@@ -329,28 +329,13 @@
           <input id="line-height" type="range" min="10" max="20" value="12" />
         </div>
 
-        <div class="field row-inline">
-          <div>
-            <label class="field-label">揃え位置</label>
-            <select id="align">
-              <option value="left">左寄せ</option>
-              <option value="center">中央揃え</option>
-              <option value="right">右寄せ</option>
-            </select>
-          </div>
-          <div>
-            <label class="field-label">
-              最大行数
-              <span class="help">最後の n 行まで表示します。</span>
-            </label>
-            <select id="max-lines">
-              <option value="3">3（デフォルト）</option>
-              <option value="2">2</option>
-              <option value="4">4</option>
-              <option value="5">5</option>
-              <option value="0">制限なし（全て表示）</option>
-            </select>
-          </div>
+        <div class="field">
+          <label class="field-label">揃え位置</label>
+          <select id="align">
+            <option value="left">左寄せ</option>
+            <option value="center">中央揃え</option>
+            <option value="right">右寄せ</option>
+          </select>
         </div>
 
         <div class="field row-inline">
@@ -428,7 +413,6 @@
         lineHeight: document.getElementById("line-height"),
         lineHeightValue: document.getElementById("line-height-value"),
         align: document.getElementById("align"),
-        maxLines: document.getElementById("max-lines"),
         color: document.getElementById("color"),
         shadow: document.getElementById("shadow"),
         background: document.getElementById("background"),
@@ -471,7 +455,6 @@
           if (s.fontSize) els.fontSize.value = s.fontSize;
           if (s.lineHeight) els.lineHeight.value = s.lineHeight;
           if (s.align) els.align.value = s.align;
-          if (s.maxLines !== undefined) els.maxLines.value = String(s.maxLines);
           if (s.color) els.color.value = s.color;
           if (s.shadow) els.shadow.value = s.shadow;
           if (s.background) els.background.value = s.background;
@@ -492,12 +475,7 @@
           fontSize: Number(els.fontSize.value) || 42,
           lineHeight: Number(els.lineHeight.value) / 10 || 1.2,
           align: els.align.value,
-          maxLines: (() => {
-            const raw = Number(els.maxLines.value);
-            if (raw === 0) return 0; // 明示的な「制限なし」
-            if (Number.isNaN(raw)) return 3; // 想定外の値は 3 行にフォールバック
-            return raw || 3; // それ以外はその値、もしくは 3 行
-          })(),
+          maxLines: 3,
           color: els.color.value,
           shadow: els.shadow.value,
           background: els.background.value,
@@ -515,7 +493,7 @@
         window.localStorage.setItem(STORAGE_KEY, JSON.stringify(s));
         els.statusLine.textContent = "設定を保存しました（/display と共有されます）。";
         logEvent(
-          `設定を保存しました: クオリティ=${s.quality}, 行数=${s.maxLines}, 動作モード=${s.deviceMode}, モード=${s.mode}`,
+          `設定を保存しました: クオリティ=${s.quality}, 行数=3, 動作モード=${s.deviceMode}, モード=${s.mode}`,
         );
       }
 
