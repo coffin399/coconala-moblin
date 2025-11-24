@@ -32,6 +32,9 @@ class _SuppressTranscriptLogFilter(logging.Filter):
 logging.getLogger("werkzeug").addFilter(_SuppressTranscriptLogFilter())
 
 
+MAX_VISIBLE_LINES = 3
+
+
 class TranscriptBuffer:
     def __init__(self) -> None:
         self._lock = threading.Lock()
@@ -44,6 +47,13 @@ class TranscriptBuffer:
             if self._text:
                 self._text += "\n"
             self._text += new_text
+
+            # Keep only the last MAX_VISIBLE_LINES logical lines so that
+            # the output tab never accumulates more than N lines of text.
+            lines = [ln for ln in self._text.splitlines() if ln.strip() != ""]
+            if len(lines) > MAX_VISIBLE_LINES:
+                lines = lines[-MAX_VISIBLE_LINES :]
+            self._text = "\n".join(lines)
 
     def get(self) -> str:
         with self._lock:
