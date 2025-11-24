@@ -56,6 +56,16 @@ def worker_loop(
     while not stop_event.is_set():
         try:
             audio = record_block(segment_seconds, samplerate=sample_rate, device=audio_device)
+            # Debug: basic stats of the captured audio block
+            try:
+                print(
+                    "[worker] captured",
+                    audio.shape[0],
+                    "samples, min=%.4f max=%.4f mean=%.4f"
+                    % (float(audio.min()), float(audio.max()), float(audio.mean())),
+                )
+            except Exception as capture_exc:  # noqa: BLE001
+                print(f"[worker debug] failed to summarise audio block: {capture_exc!r}")
             text = translate_segment(
                 model,
                 audio,
@@ -64,6 +74,7 @@ def worker_loop(
                 language=language,
                 quality=quality,
             )
+            print(f"[worker] transcript: {text!r}")
             if text:
                 transcript_buffer.append(text)
         except Exception as exc:  # noqa: BLE001
@@ -213,12 +224,13 @@ def api_worker():  # type: ignore[override]
 
         mode_value = str(data.get("mode") or cfg.get("mode") or "translate")
         language_value = data.get("language", cfg.get("language", None))
+        quality_value = str(data.get("quality") or cfg.get("quality") or "ultra_low")
 
         start_worker(
             cfg.get("device_mode", "cpu"),
             audio_device,
             float(cfg.get("segment_seconds", 8.0)),
-            str(cfg.get("quality", "ultra_low")),
+            quality_value,
             mode_value,
             language_value,
         )

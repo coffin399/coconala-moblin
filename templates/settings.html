@@ -285,6 +285,17 @@
         </div>
 
         <div class="field">
+          <label class="field-label">クオリティ（モデル）</label>
+          <select id="quality">
+            <option value="ultra_low">超軽量（最速・低精度）</option>
+            <option value="low">軽量（速い・やや低精度）</option>
+            <option value="normal">標準</option>
+            <option value="high">高品質（やや重い）</option>
+            <option value="ultra_high">最高品質（重い）</option>
+          </select>
+        </div>
+
+        <div class="field">
           <label class="field-label">フォントファミリー</label>
           <select id="font-family">
             <option value="system-ui">システム (System UI)</option>
@@ -320,13 +331,16 @@
             </select>
           </div>
           <div>
-            <label class="field-label">最大行数</label>
+            <label class="field-label">
+              最大行数
+              <span class="help">最後の n 行まで表示します。</span>
+            </label>
             <select id="max-lines">
-              <option value="0">制限なし</option>
-              <option value="2">2</option>
+              <option value="2">2（デフォルト）</option>
               <option value="3">3</option>
               <option value="4">4</option>
               <option value="5">5</option>
+              <option value="0">制限なし（全て表示）</option>
             </select>
           </div>
         </div>
@@ -407,6 +421,7 @@
         obsPath: document.getElementById("obs-path"),
         mode: document.getElementById("mode"),
         language: document.getElementById("language"),
+        quality: document.getElementById("quality"),
         audioDevice: document.getElementById("audio-device"),
         workerStart: document.getElementById("worker-start-btn"),
         workerStop: document.getElementById("worker-stop-btn"),
@@ -434,6 +449,7 @@
           if (s.obsPath) els.obsPath.value = s.obsPath;
           if (s.mode) els.mode.value = s.mode;
           if (s.language) els.language.value = s.language;
+          if (s.quality) els.quality.value = s.quality;
         } catch {
           // ignore
         }
@@ -453,6 +469,7 @@
           obsPath: els.obsPath.value || "",
           mode: els.mode.value,
           language: els.language.value,
+          quality: els.quality.value,
         };
       }
 
@@ -560,6 +577,18 @@
           if (cfg.language !== undefined && els.language) {
             els.language.value = cfg.language || "auto";
           }
+          if (cfg.quality && els.quality) {
+            els.quality.value = cfg.quality;
+          }
+          if (cfg.audio_device !== undefined && els.audioDevice) {
+            const v = cfg.audio_device === null ? "" : String(cfg.audio_device);
+            const options = Array.from(els.audioDevice.options).map((o) => o.value);
+            if (options.includes(v)) {
+              els.audioDevice.value = v;
+            } else if (v === "") {
+              els.audioDevice.value = "";
+            }
+          }
         } catch (err) {
           console.error(err);
         }
@@ -572,6 +601,7 @@
           audio_device: value === "" ? null : value,
           mode: els.mode.value,
           language: els.language.value,
+          quality: els.quality.value,
         };
         try {
           const res = await fetch("/api/worker", {
