@@ -344,8 +344,8 @@
               <span class="help">最後の n 行まで表示します。</span>
             </label>
             <select id="max-lines">
-              <option value="2">2（デフォルト）</option>
-              <option value="3">3</option>
+              <option value="3">3（デフォルト）</option>
+              <option value="2">2</option>
               <option value="4">4</option>
               <option value="5">5</option>
               <option value="0">制限なし（全て表示）</option>
@@ -495,8 +495,8 @@
           maxLines: (() => {
             const raw = Number(els.maxLines.value);
             if (raw === 0) return 0; // 明示的な「制限なし」
-            if (Number.isNaN(raw)) return 2; // 想定外の値は 2 行にフォールバック
-            return raw || 2; // それ以外はその値、もしくは 2 行
+            if (Number.isNaN(raw)) return 3; // 想定外の値は 3 行にフォールバック
+            return raw || 3; // それ以外はその値、もしくは 3 行
           })(),
           color: els.color.value,
           shadow: els.shadow.value,
