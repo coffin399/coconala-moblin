@@ -179,7 +179,7 @@
         border: 1px solid #1f2937;
         background: #020617;
         padding: 10px 12px;
-        overflow-y: auto;
+        overflow: hidden;
         white-space: pre-wrap;
       }
       .status-line {
@@ -411,6 +411,10 @@
           <span class="pill">/display</span>
           <span class="pill">REST: /transcript</span>
         </div>
+        <div class="log-panel">
+          <div class="log-title">イベントログ</div>
+          <div class="log-body" id="event-log"></div>
+        </div>
       </section>
     </main>
 
@@ -441,9 +445,22 @@
         preview: document.getElementById("preview-box"),
         statusPill: document.getElementById("status-pill"),
         statusLine: document.getElementById("status-line"),
+        eventLog: document.getElementById("event-log"),
         saveBtn: document.getElementById("save-btn"),
         resetBtn: document.getElementById("reset-btn"),
       };
+
+      function logEvent(message) {
+        if (!els.eventLog) return;
+        const ts = new Date();
+        const hh = String(ts.getHours()).padStart(2, "0");
+        const mm = String(ts.getMinutes()).padStart(2, "0");
+        const ss = String(ts.getSeconds()).padStart(2, "0");
+        const line = document.createElement("div");
+        line.textContent = `[${hh}:${mm}:${ss}] ${message}`;
+        els.eventLog.appendChild(line);
+        els.eventLog.scrollTop = els.eventLog.scrollHeight;
+      }
 
       function loadSettings() {
         try {
@@ -497,6 +514,9 @@
         const s = currentSettings();
         window.localStorage.setItem(STORAGE_KEY, JSON.stringify(s));
         els.statusLine.textContent = "設定を保存しました（/display と共有されます）。";
+        logEvent(
+          `設定を保存しました: クオリティ=${s.quality}, 行数=${s.maxLines}, 動作モード=${s.deviceMode}, モード=${s.mode}`,
+        );
       }
 
       function resetSettings() {
@@ -509,12 +529,7 @@
         els.fontSizeValue.textContent = String(s.fontSize);
         els.lineHeightValue.textContent = s.lineHeight.toFixed(1);
 
-        let displayText = text || "";
-        if (s.maxLines > 0) {
-          const lines = displayText.split(/\r?\n/).filter((l) => l.trim() !== "");
-          const tail = lines.slice(-s.maxLines);
-          displayText = tail.join("\n");
-        }
+        const displayText = text || "";
         els.preview.textContent = displayText;
 
         let family;
@@ -537,6 +552,14 @@
         els.preview.style.textAlign = s.align;
         els.preview.style.color = s.color;
         els.preview.style.padding = s.padding + "px";
+
+        // 見た目の行数制限: フォントサイズと行間から高さを計算してクリップする。
+        if (s.maxLines > 0) {
+          const linePx = s.fontSize * s.lineHeight;
+          els.preview.style.maxHeight = linePx * s.maxLines + "px";
+        } else {
+          els.preview.style.maxHeight = ""; // 制限なし
+        }
 
         if (s.background === "transparent") {
           els.preview.style.background = "transparent";
@@ -641,6 +664,13 @@
             throw new Error(data.error || `HTTP ${res.status}`);
           }
           els.statusLine.textContent = "ワーカーを開始しました。";
+          const devOption = els.audioDevice.options[els.audioDevice.selectedIndex];
+          const devLabel = devOption ? devOption.textContent : "既定のデバイス";
+          logEvent(
+            `ワーカー開始: デバイス=${devLabel}, クオリティ=${els.quality.value}, 動作モード=${
+              els.deviceMode.value
+            }, モード=${els.mode.value}, 言語=${els.language.value}`,
+          );
           updateWorkerStatus();
         } catch (err) {
           console.error(err);
@@ -660,6 +690,7 @@
             throw new Error(data.error || `HTTP ${res.status}`);
           }
           els.statusLine.textContent = "ワーカーを停止しました。";
+          logEvent("ワーカーを停止しました。");
           updateWorkerStatus();
         } catch (err) {
           console.error(err);
@@ -712,6 +743,15 @@
       els.workerStop.addEventListener("click", (e) => {
         e.preventDefault();
         stopWorkerUi();
+      });
+      els.quality.addEventListener("change", () => {
+        logEvent(`クオリティを変更: ${els.quality.value}`);
+      });
+      els.deviceMode.addEventListener("change", () => {
+        logEvent(`動作モードを変更: ${els.deviceMode.value}`);
+      });
+      els.mode.addEventListener("change", () => {
+        logEvent(`モードを変更: ${els.mode.value}`);
       });
       els.clearBtn.addEventListener("click", (e) => {
         e.preventDefault();

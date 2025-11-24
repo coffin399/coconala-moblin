@@ -84,12 +84,7 @@
             family = 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
         }
 
-        let displayText = text || "";
-        if (maxLines > 0) {
-          const lines = displayText.split(/\r?\n/).filter((l) => l.trim() !== "");
-          const tail = lines.slice(-maxLines);
-          displayText = tail.join("\n");
-        }
+        const displayText = text || "";
         box.textContent = displayText;
 
         box.style.fontFamily = family;
@@ -98,6 +93,14 @@
         box.style.textAlign = align;
         box.style.color = color;
         box.style.padding = padding + "px";
+
+        // 見た目の行数制限: フォントサイズと行間から高さを計算してクリップする。
+        if (maxLines > 0) {
+          const linePx = fontSize * lineHeight;
+          box.style.maxHeight = linePx * maxLines + "px";
+        } else {
+          box.style.maxHeight = ""; // 制限なし
+        }
 
         const bg = s.background || "transparent";
         if (bg === "transparent") {
