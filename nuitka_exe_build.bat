@@ -4,8 +4,8 @@ setlocal ENABLEDELAYEDEXPANSION
 rem Change working directory to the location of this script
 cd /d "%~dp0"
 
-echo [1/4] Creating (or reusing) virtual environment .venv ...
-python -m venv .venv
+echo [1/4] Creating (or reusing) virtual environment .venv with Python 3.11 ...
+py -3.11 -m venv .venv
 if errorlevel 1 (
     echo Failed to create virtual environment.
     goto :error
@@ -18,17 +18,17 @@ if errorlevel 1 (
     goto :error
 )
 
-echo [2/4] Upgrading pip inside the virtual environment ...
+echo [2/4] Upgrading pip inside the virtual environment (Python 3.11) ...
 python -m pip install --upgrade pip
 if errorlevel 1 goto :error
 
-echo [3/4] Installing project dependencies and Nuitka ...
+echo [3/4] Installing project dependencies and Nuitka (Python 3.11) ...
 python -m pip install -r requirements.txt
 if errorlevel 1 goto :error
 python -m pip install nuitka
 if errorlevel 1 goto :error
 
-echo [4/4] Building GUI executable with Nuitka ...
+echo [4/4] Building GUI executable with Nuitka (Python 3.11) ...
 python -m nuitka ^
   --onefile ^
   --windows-disable-console ^
