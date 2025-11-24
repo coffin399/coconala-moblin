@@ -29,8 +29,9 @@ def create_model(device_mode: str = "cpu", quality: str = "normal") -> WhisperMo
     use_cuda = device_mode == "cuda" and os.environ.get("MST_ENABLE_CUDA") == "1"
     if use_cuda:
         device = "cuda"
-        # The model card example uses float32 on CUDA; keep it for accuracy.
-        compute_type = "float32"
+        # Use int8_float16 on CUDA to reduce VRAM usage while keeping
+        # reasonable accuracy.
+        compute_type = "int8_float16"
     else:
         device = "cpu"
         # On CPU we keep everything int8 for memory/latency.
@@ -62,7 +63,8 @@ def create_model(device_mode: str = "cpu", quality: str = "normal") -> WhisperMo
     except Exception as exc:  # noqa: BLE001
         # If CUDA initialisation fails (missing cudnn DLL, invalid handle, etc.),
         # fall back to CPU so the process does not crash (for environments
-        # without a proper CUDA/cuDNN setup).
+        # without a proper CUDA/cuDNN setup). Logs will clearly state that
+        # CPU is being used instead.
         if device == "cuda":
             print(
                 f"[model warning] CUDA initialisation failed ({exc!r}); "
