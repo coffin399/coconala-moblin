@@ -244,6 +244,23 @@
         <div class="panel-title">テキスト設定</div>
         <div class="panel-subtitle">出力タブでの字幕の見た目を調整します。</div>
 
+        <div class="field row-inline">
+          <div>
+            <label class="field-label">
+              入力デバイス
+              <span class="help">VB-Cable などの入力デバイスを選択します。</span>
+            </label>
+            <select id="audio-device"></select>
+          </div>
+          <div>
+            <label class="field-label">ワーカー</label>
+            <div class="row-inline">
+              <button class="btn" id="worker-start-btn">開始</button>
+              <button class="btn secondary" id="worker-stop-btn">停止</button>
+            </div>
+          </div>
+        </div>
+
         <div class="field">
           <label class="field-label">フォントファミリー</label>
           <select id="font-family">
@@ -365,6 +382,9 @@
         background: document.getElementById("background"),
         padding: document.getElementById("padding"),
         obsPath: document.getElementById("obs-path"),
+        audioDevice: document.getElementById("audio-device"),
+        workerStart: document.getElementById("worker-start-btn"),
+        workerStop: document.getElementById("worker-stop-btn"),
         preview: document.getElementById("preview-box"),
         statusPill: document.getElementById("status-pill"),
         statusLine: document.getElementById("status-line"),
@@ -470,6 +490,85 @@
         }
       }
 
+      async function refreshDevices() {
+        try {
+          const res = await fetch("/api/devices", { cache: "no-store" });
+          if (!res.ok) throw new Error("HTTP " + res.status);
+          const data = await res.json();
+          const devices = data.devices || [];
+          els.audioDevice.innerHTML = "";
+
+          const optDefault = document.createElement("option");
+          optDefault.value = "";
+          optDefault.textContent = "既定のデバイスを使用";
+          els.audioDevice.appendChild(optDefault);
+
+          for (const dev of devices) {
+            const opt = document.createElement("option");
+            opt.value = String(dev.index);
+            const label = `${dev.index}: ${dev.name}`;
+            opt.textContent = dev.is_default ? `${label} (既定)` : label;
+            els.audioDevice.appendChild(opt);
+          }
+        } catch (err) {
+          console.error(err);
+          els.statusLine.textContent = "デバイス一覧の取得に失敗しました。コンソールを確認してください。";
+        }
+      }
+
+      async function updateWorkerStatus() {
+        try {
+          const res = await fetch("/api/worker", { cache: "no-store" });
+          if (!res.ok) throw new Error("HTTP " + res.status);
+          const data = await res.json();
+          const running = !!data.running;
+          els.workerStart.disabled = running;
+          els.workerStop.disabled = !running;
+        } catch (err) {
+          console.error(err);
+        }
+      }
+
+      async function startWorker() {
+        const value = els.audioDevice.value;
+        const payload = { action: "start", audio_device: value === "" ? null : value };
+        try {
+          const res = await fetch("/api/worker", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
+          });
+          const data = await res.json();
+          if (!res.ok || data.error) {
+            throw new Error(data.error || `HTTP ${res.status}`);
+          }
+          els.statusLine.textContent = "ワーカーを開始しました。";
+          updateWorkerStatus();
+        } catch (err) {
+          console.error(err);
+          els.statusLine.textContent = "ワーカーの開始に失敗しました。コンソールを確認してください。";
+        }
+      }
+
+      async function stopWorkerUi() {
+        try {
+          const res = await fetch("/api/worker", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ action: "stop" }),
+          });
+          const data = await res.json();
+          if (!res.ok || data.error) {
+            throw new Error(data.error || `HTTP ${res.status}`);
+          }
+          els.statusLine.textContent = "ワーカーを停止しました。";
+          updateWorkerStatus();
+        } catch (err) {
+          console.error(err);
+          els.statusLine.textContent = "ワーカーの停止に失敗しました。コンソールを確認してください。";
+        }
+      }
+
       async function pollTranscript() {
         try {
           const res = await fetch("/transcript", { cache: "no-store" });
@@ -508,8 +607,19 @@
         els.lineHeightValue.textContent = (Number(els.lineHeight.value) / 10).toFixed(1);
       });
 
+      els.workerStart.addEventListener("click", (e) => {
+        e.preventDefault();
+        startWorker();
+      });
+      els.workerStop.addEventListener("click", (e) => {
+        e.preventDefault();
+        stopWorkerUi();
+      });
+
       loadSettings();
       applyToPreview("");
+      refreshDevices();
+      updateWorkerStatus();
       pollTranscript();
     </script>
   </body>

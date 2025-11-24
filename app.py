@@ -4,7 +4,8 @@ import time
 import webbrowser
 from typing import Optional
 
-from flask import Flask, jsonify, redirect, render_template, url_for
+import sounddevice as sd
+from flask import Flask, jsonify, redirect, render_template, request, url_for
 
 from audio_capture import record_block, DEFAULT_SAMPLE_RATE
 from stt_translate import create_model, translate_segment
@@ -34,16 +35,23 @@ class TranscriptBuffer:
 transcript_buffer = TranscriptBuffer()
 
 
+worker_thread: Optional[threading.Thread] = None
+worker_stop_event: Optional[threading.Event] = None
+worker_lock = threading.Lock()
+worker_config: dict | None = None
+
+
 def worker_loop(
     device_mode: str,
     audio_device: Optional[int],
     segment_seconds: float,
     quality: str,
+    stop_event: threading.Event,
 ) -> None:
     model = create_model(device_mode, quality=quality)
     sample_rate = DEFAULT_SAMPLE_RATE
 
-    while True:
+    while not stop_event.is_set():
         try:
             audio = record_block(segment_seconds, samplerate=sample_rate, device=audio_device)
             text = translate_segment(
@@ -60,6 +68,46 @@ def worker_loop(
             # Keep going even if one segment fails.
             print(f"[worker error] {exc!r}")
             time.sleep(1.0)
+
+
+def start_worker(
+    device_mode: str,
+    audio_device: Optional[int],
+    segment_seconds: float,
+    quality: str,
+) -> None:
+    global worker_thread, worker_stop_event, worker_config
+    with worker_lock:
+        if worker_stop_event is not None:
+            worker_stop_event.set()
+        if worker_thread is not None and worker_thread.is_alive():
+            worker_thread.join(timeout=1.0)
+
+        stop_event = threading.Event()
+        worker_stop_event = stop_event
+        worker_config = {
+            "device_mode": device_mode,
+            "audio_device": audio_device,
+            "segment_seconds": segment_seconds,
+            "quality": quality,
+        }
+
+        def _run() -> None:
+            worker_loop(device_mode, audio_device, segment_seconds, quality, stop_event)
+
+        worker_thread = threading.Thread(target=_run, daemon=True)
+        worker_thread.start()
+
+
+def stop_worker() -> None:
+    global worker_thread, worker_stop_event
+    with worker_lock:
+        if worker_stop_event is not None:
+            worker_stop_event.set()
+        if worker_thread is not None and worker_thread.is_alive():
+            worker_thread.join(timeout=1.0)
+        worker_thread = None
+        worker_stop_event = None
 
 
 @app.route("/")
@@ -80,6 +128,90 @@ def display() -> str:
 @app.route("/transcript")
 def get_transcript():  # type: ignore[override]
     return jsonify({"text": transcript_buffer.get()})
+
+
+@app.route("/api/devices")
+def api_devices():  # type: ignore[override]
+    """List input audio devices for the Web UI.
+
+    Returns a JSON array of {index, name, is_default} objects.
+    """
+    try:
+        devices = sd.query_devices()
+        default_input = None
+        try:
+            default_input = sd.default.device[0]
+        except Exception:  # noqa: BLE001
+            default_input = None
+
+        items = []
+        for idx, dev in enumerate(devices):
+            try:
+                if dev.get("max_input_channels", 0) > 0:
+                    items.append(
+                        {
+                            "index": idx,
+                            "name": str(dev.get("name", f"Device {idx}")),
+                            "is_default": bool(default_input is not None and idx == default_input),
+                        }
+                    )
+            except Exception:  # noqa: BLE001
+                continue
+        return jsonify({"devices": items})
+    except Exception as exc:  # noqa: BLE001
+        return jsonify({"error": repr(exc)}), 500
+
+
+@app.route("/api/worker", methods=["GET", "POST"])
+def api_worker():  # type: ignore[override]
+    """Get or control the audio worker.
+
+    GET: returns running state and current config.
+    POST: {action: "start"|"stop", audio_device?: int|null}
+    """
+    global worker_config
+
+    if request.method == "GET":
+        with worker_lock:
+            running = worker_thread is not None and worker_thread.is_alive()
+            cfg = worker_config or {}
+        return jsonify({"running": running, "config": cfg})
+
+    data = request.get_json(silent=True) or {}
+    action = str(data.get("action", "")).lower()
+
+    if action == "stop":
+        stop_worker()
+        return jsonify({"ok": True, "running": False})
+
+    if action == "start":
+        with worker_lock:
+            cfg = worker_config or {
+                "device_mode": "cpu",
+                "audio_device": None,
+                "segment_seconds": 8.0,
+                "quality": "ultra_low",
+            }
+
+        audio_device_value = data.get("audio_device")
+        audio_device: Optional[int]
+        if audio_device_value in (None, ""):
+            audio_device = None
+        else:
+            try:
+                audio_device = int(audio_device_value)
+            except (TypeError, ValueError):
+                return jsonify({"error": "invalid audio_device"}), 400
+
+        start_worker(
+            cfg.get("device_mode", "cpu"),
+            audio_device,
+            float(cfg.get("segment_seconds", 8.0)),
+            str(cfg.get("quality", "ultra_low")),
+        )
+        return jsonify({"ok": True, "running": True})
+
+    return jsonify({"error": "invalid action"}), 400
 
 
 def parse_args():
@@ -119,12 +251,8 @@ def parse_args():
 def main() -> None:
     args = parse_args()
 
-    worker = threading.Thread(
-        target=worker_loop,
-        args=(args.device, args.audio_device, args.segment_seconds, args.quality),
-        daemon=True,
-    )
-    worker.start()
+    # Start the initial worker with CLI defaults.
+    start_worker(args.device, args.audio_device, args.segment_seconds, args.quality)
 
     # Open default browser to the settings page shortly after startup.
     url = f"http://{args.host}:{args.port}/settings"
