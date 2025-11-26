@@ -87,7 +87,12 @@ def worker_loop(
 
     while not stop_event.is_set():
         try:
-            audio = record_block(segment_seconds, samplerate=sample_rate, device=audio_device)
+            audio = record_block(
+                segment_seconds,
+                samplerate=sample_rate,
+                device=audio_device,
+                capture_mode="loopback",
+            )
             # Sanitize audio to avoid NaNs / infs / absurd amplitudes propagating into faster-whisper.
             if audio.size == 0:
                 continue
