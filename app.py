@@ -81,6 +81,7 @@ def worker_loop(
     stop_event: threading.Event,
     mode: str,
     language: Optional[str],
+    capture_mode: str = "loopback",
 ) -> None:
     model = create_model(device_mode, quality=quality)
     sample_rate = DEFAULT_SAMPLE_RATE
@@ -91,7 +92,7 @@ def worker_loop(
                 segment_seconds,
                 samplerate=sample_rate,
                 device=audio_device,
-                capture_mode="loopback",
+                capture_mode=capture_mode,
             )
             # Sanitize audio to avoid NaNs / infs / absurd amplitudes propagating into faster-whisper.
             if audio.size == 0:
@@ -157,6 +158,7 @@ def start_worker(
     quality: str,
     mode: str = "translate",
     language: Optional[str] = None,
+    capture_mode: str = "loopback",
 ) -> None:
     global worker_thread, worker_stop_event, worker_config
     with worker_lock:
@@ -174,10 +176,20 @@ def start_worker(
             "quality": quality,
             "mode": mode,
             "language": language,
+            "capture_mode": capture_mode,
         }
 
         def _run() -> None:
-            worker_loop(device_mode, audio_device, segment_seconds, quality, stop_event, mode, language)
+            worker_loop(
+                device_mode,
+                audio_device,
+                segment_seconds,
+                quality,
+                stop_event,
+                mode,
+                language,
+                capture_mode,
+            )
 
         worker_thread = threading.Thread(target=_run, daemon=True)
         worker_thread.start()
@@ -284,6 +296,7 @@ def api_worker():  # type: ignore[override]
                 "quality": "ultra_low",
                 "mode": "translate",
                 "language": None,
+                "capture_mode": "loopback",
             }
 
         audio_device_value = data.get("audio_device")
@@ -300,6 +313,7 @@ def api_worker():  # type: ignore[override]
         language_value = data.get("language", cfg.get("language", None))
         quality_value = str(data.get("quality") or cfg.get("quality") or "ultra_low")
         device_mode_value = str(data.get("device_mode") or cfg.get("device_mode") or "cpu")
+        capture_mode_value = str(data.get("capture_mode") or cfg.get("capture_mode") or "loopback")
 
         start_worker(
             device_mode_value,
@@ -308,6 +322,7 @@ def api_worker():  # type: ignore[override]
             quality_value,
             mode_value,
             language_value,
+            capture_mode_value,
         )
         return jsonify({"ok": True, "running": True})
 

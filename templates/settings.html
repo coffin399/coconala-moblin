@@ -282,6 +282,12 @@
               <span class="help">VB-Cable などの入力デバイスを選択します。</span>
             </label>
             <select id="audio-device"></select>
+            <div style="margin-top: 4px; display: flex; align-items: center; gap: 6px;">
+              <input type="checkbox" id="capture-system-audio" />
+              <label for="capture-system-audio" class="field-label" style="margin-bottom: 0;">
+                PC全体の音声をキャプチャする
+              </label>
+            </div>
           </div>
           <div>
             <label class="field-label">ワーカー</label>
@@ -423,6 +429,7 @@
         deviceMode: document.getElementById("device-mode"),
         quality: document.getElementById("quality"),
         audioDevice: document.getElementById("audio-device"),
+        captureSystemAudio: document.getElementById("capture-system-audio"),
         workerStart: document.getElementById("worker-start-btn"),
         workerStop: document.getElementById("worker-stop-btn"),
         clearBtn: document.getElementById("clear-btn"),
@@ -464,6 +471,9 @@
           if (s.language) els.language.value = s.language;
           if (s.quality) els.quality.value = s.quality;
           if (s.deviceMode) els.deviceMode.value = s.deviceMode;
+          if (s.captureSystemAudio !== undefined && els.captureSystemAudio) {
+            els.captureSystemAudio.checked = !!s.captureSystemAudio;
+          }
         } catch {
           // ignore
         }
@@ -485,6 +495,7 @@
           language: els.language.value,
           deviceMode: els.deviceMode.value,
           quality: els.quality.value,
+          captureSystemAudio: !!(els.captureSystemAudio && els.captureSystemAudio.checked),
         };
       }
 
@@ -636,6 +647,13 @@
               els.audioDevice.value = "";
             }
           }
+          const captureMode = (cfg.capture_mode || "loopback").toString();
+          if (els.captureSystemAudio) {
+            els.captureSystemAudio.checked = captureMode === "loopback";
+          }
+          if (els.audioDevice) {
+            els.audioDevice.disabled = captureMode === "loopback";
+          }
         } catch (err) {
           console.error(err);
         }
@@ -650,6 +668,8 @@
           language: els.language.value,
           device_mode: els.deviceMode.value,
           quality: els.quality.value,
+          capture_mode:
+            els.captureSystemAudio && els.captureSystemAudio.checked ? "loopback" : "input",
         };
         try {
           const res = await fetch("/api/worker", {
@@ -738,6 +758,13 @@
         e.preventDefault();
         startWorker();
       });
+      if (els.captureSystemAudio) {
+        els.captureSystemAudio.addEventListener("change", () => {
+          if (!els.audioDevice) return;
+          const useSystem = !!els.captureSystemAudio.checked;
+          els.audioDevice.disabled = useSystem;
+        });
+      }
       els.workerStop.addEventListener("click", (e) => {
         e.preventDefault();
         stopWorkerUi();
