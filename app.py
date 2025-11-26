@@ -104,9 +104,11 @@ def worker_loop(
 
             # Basic sanity checks on amplitude.
             max_abs = float(np.max(np.abs(audio)))
-            # Treat extremely small amplitudes as silence to avoid spurious
+            # Treat small amplitudes as silence to avoid spurious
             # transcriptions (e.g. translating background noise to "I'm sorry").
-            if np.isfinite(max_abs) and max_abs < 2e-3:
+            # The threshold is intentionally a bit conservative for noisy
+            # environments so that quiet background sounds are skipped.
+            if np.isfinite(max_abs) and max_abs < 6e-3:
                 # Low enough that this is effectively silence; skip.
                 time.sleep(0.05)
                 continue

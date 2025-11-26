@@ -661,15 +661,16 @@
 
       async function startWorker() {
         const value = els.audioDevice.value;
+        const useSystemAudio = !!(els.captureSystemAudio && els.captureSystemAudio.checked);
         const payload = {
           action: "start",
-          audio_device: value === "" ? null : value,
+          audio_device: useSystemAudio ? null : value === "" ? null : value,
           mode: els.mode.value,
           language: els.language.value,
           device_mode: els.deviceMode.value,
           quality: els.quality.value,
           capture_mode:
-            els.captureSystemAudio && els.captureSystemAudio.checked ? "loopback" : "input",
+            useSystemAudio ? "loopback" : "input",
         };
         try {
           const res = await fetch("/api/worker", {
