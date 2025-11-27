@@ -310,6 +310,14 @@
         </div>
 
         <div class="field">
+          <label class="field-label">
+            ノイズフィルタ強度
+            <span class="help"><span id="vad-level-value">1</span> / 3（0=オフ, 1=弱, 2=中, 3=強）</span>
+          </label>
+          <input id="vad-level" type="range" min="0" max="3" value="1" />
+        </div>
+
+        <div class="field">
           <label class="field-label">フォントファミリー</label>
           <select id="font-family">
             <option value="system-ui">システム (System UI)</option>
@@ -428,6 +436,8 @@
         language: document.getElementById("language"),
         deviceMode: document.getElementById("device-mode"),
         quality: document.getElementById("quality"),
+        vadLevel: document.getElementById("vad-level"),
+        vadLevelValue: document.getElementById("vad-level-value"),
         audioDevice: document.getElementById("audio-device"),
         captureSystemAudio: document.getElementById("capture-system-audio"),
         workerStart: document.getElementById("worker-start-btn"),
@@ -474,6 +484,12 @@
           if (s.captureSystemAudio !== undefined && els.captureSystemAudio) {
             els.captureSystemAudio.checked = !!s.captureSystemAudio;
           }
+          if (s.vadLevel !== undefined && els.vadLevel) {
+            els.vadLevel.value = String(s.vadLevel);
+          }
+          if (els.vadLevel && els.vadLevelValue) {
+            els.vadLevelValue.textContent = String(els.vadLevel.value || "1");
+          }
         } catch {
           // ignore
         }
@@ -496,6 +512,7 @@
           deviceMode: els.deviceMode.value,
           quality: els.quality.value,
           captureSystemAudio: !!(els.captureSystemAudio && els.captureSystemAudio.checked),
+          vadLevel: Number(els.vadLevel && els.vadLevel.value ? els.vadLevel.value : 1),
         };
       }
 
@@ -635,9 +652,9 @@
           if (cfg.quality && els.quality) {
             els.quality.value = cfg.quality;
           }
-           if (cfg.device_mode && els.deviceMode) {
-             els.deviceMode.value = cfg.device_mode;
-           }
+          if (cfg.device_mode && els.deviceMode) {
+            els.deviceMode.value = cfg.device_mode;
+          }
           if (cfg.audio_device !== undefined && els.audioDevice) {
             const v = cfg.audio_device === null ? "" : String(cfg.audio_device);
             const options = Array.from(els.audioDevice.options).map((o) => o.value);
@@ -645,6 +662,12 @@
               els.audioDevice.value = v;
             } else if (v === "") {
               els.audioDevice.value = "";
+            }
+          }
+          if (cfg.vad_level !== undefined && els.vadLevel) {
+            els.vadLevel.value = String(cfg.vad_level);
+            if (els.vadLevelValue) {
+              els.vadLevelValue.textContent = String(cfg.vad_level);
             }
           }
           const captureMode = (cfg.capture_mode || "loopback").toString();
@@ -671,6 +694,7 @@
           quality: els.quality.value,
           capture_mode:
             useSystemAudio ? "loopback" : "input",
+          vad_level: Number(els.vadLevel && els.vadLevel.value ? els.vadLevel.value : 1),
         };
         try {
           const res = await fetch("/api/worker", {
@@ -754,6 +778,11 @@
       els.lineHeight.addEventListener("input", () => {
         els.lineHeightValue.textContent = (Number(els.lineHeight.value) / 10).toFixed(1);
       });
+      if (els.vadLevel && els.vadLevelValue) {
+        els.vadLevel.addEventListener("input", () => {
+          els.vadLevelValue.textContent = String(els.vadLevel.value);
+        });
+      }
 
       els.workerStart.addEventListener("click", (e) => {
         e.preventDefault();

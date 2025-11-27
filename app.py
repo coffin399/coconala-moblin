@@ -6,6 +6,7 @@ import webbrowser
 from typing import Optional
 
 import numpy as np
+import webrtcvad
 import sounddevice as sd
 from flask import Flask, jsonify, redirect, render_template, request, url_for
 
@@ -73,6 +74,46 @@ worker_lock = threading.Lock()
 worker_config: dict | None = None
 
 
+def _apply_vad_filter(audio: np.ndarray, sample_rate: int, vad_level: int) -> np.ndarray:
+    try:
+        vad_level_int = int(vad_level)
+    except (TypeError, ValueError):
+        return audio
+    if vad_level_int <= 0:
+        return audio
+    if audio.size == 0:
+        return audio
+
+    vad_level_int = max(0, min(3, vad_level_int))
+    vad = webrtcvad.Vad(vad_level_int)
+
+    clipped = np.clip(audio, -1.0, 1.0)
+    int16_audio = (clipped * 32768.0).astype(np.int16, copy=False)
+
+    frame_duration_ms = 30
+    frame_length = int(sample_rate * frame_duration_ms / 1000)
+    if frame_length <= 0:
+        return audio
+
+    total = (int16_audio.size // frame_length) * frame_length
+    if total <= 0:
+        return audio
+
+    int16_audio = int16_audio[:total]
+    frames = int16_audio.reshape(-1, frame_length)
+
+    speech_frames: list[np.ndarray] = []
+    for frame in frames:
+        if vad.is_speech(frame.tobytes(), sample_rate):
+            speech_frames.append(frame)
+
+    if not speech_frames:
+        return np.empty((0,), dtype=np.float32)
+
+    stacked = np.concatenate(speech_frames)
+    return stacked.astype(np.float32) / 32768.0
+
+
 def worker_loop(
     device_mode: str,
     audio_device: Optional[int],
@@ -82,6 +123,7 @@ def worker_loop(
     mode: str,
     language: Optional[str],
     capture_mode: str = "loopback",
+    vad_level: int = 0,
 ) -> None:
     model = create_model(device_mode, quality=quality)
     sample_rate = DEFAULT_SAMPLE_RATE
@@ -136,6 +178,11 @@ def worker_loop(
                 )
             except Exception as capture_exc:  # noqa: BLE001
                 print(f"[worker debug] failed to summarise audio block: {capture_exc!r}")
+            audio_filtered = _apply_vad_filter(audio, sample_rate, vad_level)
+            if audio_filtered.size == 0:
+                time.sleep(0.05)
+                continue
+            audio = audio_filtered
             text = translate_segment(
                 model,
                 audio,
@@ -161,6 +208,7 @@ def start_worker(
     mode: str = "translate",
     language: Optional[str] = None,
     capture_mode: str = "loopback",
+    vad_level: int = 0,
 ) -> None:
     global worker_thread, worker_stop_event, worker_config
     with worker_lock:
@@ -179,6 +227,7 @@ def start_worker(
             "mode": mode,
             "language": language,
             "capture_mode": capture_mode,
+            "vad_level": vad_level,
         }
 
         def _run() -> None:
@@ -191,6 +240,7 @@ def start_worker(
                 mode,
                 language,
                 capture_mode,
+                vad_level,
             )
 
         worker_thread = threading.Thread(target=_run, daemon=True)
@@ -299,6 +349,7 @@ def api_worker():  # type: ignore[override]
                 "mode": "translate",
                 "language": None,
                 "capture_mode": "loopback",
+                "vad_level": 0,
             }
 
         audio_device_value = data.get("audio_device")
@@ -316,6 +367,15 @@ def api_worker():  # type: ignore[override]
         quality_value = str(data.get("quality") or cfg.get("quality") or "ultra_low")
         device_mode_value = str(data.get("device_mode") or cfg.get("device_mode") or "cpu")
         capture_mode_value = str(data.get("capture_mode") or cfg.get("capture_mode") or "loopback")
+        vad_level_raw = data.get("vad_level", cfg.get("vad_level", 0))
+        try:
+            vad_level_value = int(vad_level_raw)
+        except (TypeError, ValueError):
+            vad_level_value = 0
+        if vad_level_value < 0:
+            vad_level_value = 0
+        if vad_level_value > 3:
+            vad_level_value = 3
 
         start_worker(
             device_mode_value,
@@ -325,6 +385,7 @@ def api_worker():  # type: ignore[override]
             mode_value,
             language_value,
             capture_mode_value,
+            vad_level_value,
         )
         return jsonify({"ok": True, "running": True})
 
