@@ -235,6 +235,20 @@
           <div class="sub">Web コントロール · 設定</div>
         </div>
 
+        <div class="field">
+          <label class="field-label">
+            SRT ストリーム入力
+            <span class="help">srtla:// または srt:// で始まる URL から直接音声を取得します。</span>
+          </label>
+          <div style="margin-top: 4px; display: flex; align-items: center; gap: 6px;">
+            <input type="checkbox" id="srt-mode" />
+            <label for="srt-mode" class="field-label" style="margin-bottom: 0;">
+              SRT ストリームから音声を取得する
+            </label>
+          </div>
+          <input id="srt-url" type="text" placeholder="srtla://... または srt://..." style="margin-top: 6px;" />
+        </div>
+
         <div class="field row-inline">
           <div>
             <label class="field-label">モード</label>
@@ -440,6 +454,8 @@
         vadLevelValue: document.getElementById("vad-level-value"),
         audioDevice: document.getElementById("audio-device"),
         captureSystemAudio: document.getElementById("capture-system-audio"),
+        srtMode: document.getElementById("srt-mode"),
+        srtUrl: document.getElementById("srt-url"),
         workerStart: document.getElementById("worker-start-btn"),
         workerStop: document.getElementById("worker-stop-btn"),
         clearBtn: document.getElementById("clear-btn"),
@@ -484,6 +500,12 @@
           if (s.captureSystemAudio !== undefined && els.captureSystemAudio) {
             els.captureSystemAudio.checked = !!s.captureSystemAudio;
           }
+          if (s.srtMode !== undefined && els.srtMode) {
+            els.srtMode.checked = !!s.srtMode;
+          }
+          if (s.srtUrl && els.srtUrl) {
+            els.srtUrl.value = s.srtUrl;
+          }
           if (s.vadLevel !== undefined && els.vadLevel) {
             els.vadLevel.value = String(s.vadLevel);
           }
@@ -513,6 +535,8 @@
           quality: els.quality.value,
           captureSystemAudio: !!(els.captureSystemAudio && els.captureSystemAudio.checked),
           vadLevel: Number(els.vadLevel && els.vadLevel.value ? els.vadLevel.value : 1),
+          srtMode: !!(els.srtMode && els.srtMode.checked),
+          srtUrl: els.srtUrl ? els.srtUrl.value : "",
         };
       }
 
@@ -671,11 +695,21 @@
             }
           }
           const captureMode = (cfg.capture_mode || "loopback").toString();
+          const isSrt = captureMode === "srt";
           if (els.captureSystemAudio) {
             els.captureSystemAudio.checked = captureMode === "loopback";
+            if (isSrt) {
+              els.captureSystemAudio.checked = false;
+            }
           }
           if (els.audioDevice) {
-            els.audioDevice.disabled = captureMode === "loopback";
+            els.audioDevice.disabled = captureMode === "loopback" || isSrt;
+          }
+          if (els.srtMode) {
+            els.srtMode.checked = isSrt;
+          }
+          if (els.srtUrl && typeof cfg.srt_url === "string") {
+            els.srtUrl.value = cfg.srt_url || "";
           }
         } catch (err) {
           console.error(err);
@@ -685,16 +719,28 @@
       async function startWorker() {
         const value = els.audioDevice.value;
         const useSystemAudio = !!(els.captureSystemAudio && els.captureSystemAudio.checked);
+        const useSrt = !!(
+          els.srtMode &&
+          els.srtMode.checked &&
+          els.srtUrl &&
+          els.srtUrl.value &&
+          els.srtUrl.value.trim() !== ""
+        );
+        const trimmedSrtUrl = useSrt && els.srtUrl ? els.srtUrl.value.trim() : "";
         const payload = {
           action: "start",
-          audio_device: useSystemAudio ? null : value === "" ? null : value,
+          audio_device: useSystemAudio || useSrt ? null : value === "" ? null : value,
           mode: els.mode.value,
           language: els.language.value,
           device_mode: els.deviceMode.value,
           quality: els.quality.value,
-          capture_mode:
-            useSystemAudio ? "loopback" : "input",
+          capture_mode: useSrt
+            ? "srt"
+            : useSystemAudio
+              ? "loopback"
+              : "input",
           vad_level: Number(els.vadLevel && els.vadLevel.value ? els.vadLevel.value : 1),
+          srt_url: useSrt ? trimmedSrtUrl : null,
         };
         try {
           const res = await fetch("/api/worker", {

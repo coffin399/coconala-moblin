@@ -124,6 +124,7 @@ def worker_loop(
     language: Optional[str],
     capture_mode: str = "loopback",
     vad_level: int = 0,
+    srt_url: Optional[str] = None,
 ) -> None:
     model = create_model(device_mode, quality=quality)
     sample_rate = DEFAULT_SAMPLE_RATE
@@ -135,6 +136,7 @@ def worker_loop(
                 samplerate=sample_rate,
                 device=audio_device,
                 capture_mode=capture_mode,
+                srt_url=srt_url,
             )
             # Sanitize audio to avoid NaNs / infs / absurd amplitudes propagating into faster-whisper.
             if audio.size == 0:
@@ -209,6 +211,7 @@ def start_worker(
     language: Optional[str] = None,
     capture_mode: str = "loopback",
     vad_level: int = 0,
+    srt_url: Optional[str] = None,
 ) -> None:
     global worker_thread, worker_stop_event, worker_config
     with worker_lock:
@@ -228,6 +231,7 @@ def start_worker(
             "language": language,
             "capture_mode": capture_mode,
             "vad_level": vad_level,
+            "srt_url": srt_url,
         }
 
         def _run() -> None:
@@ -241,6 +245,7 @@ def start_worker(
                 language,
                 capture_mode,
                 vad_level,
+                srt_url,
             )
 
         worker_thread = threading.Thread(target=_run, daemon=True)
@@ -350,6 +355,7 @@ def api_worker():  # type: ignore[override]
                 "language": None,
                 "capture_mode": "loopback",
                 "vad_level": 0,
+                "srt_url": None,
             }
 
         audio_device_value = data.get("audio_device")
@@ -377,6 +383,18 @@ def api_worker():  # type: ignore[override]
         if vad_level_value > 3:
             vad_level_value = 3
 
+        srt_url_value_raw = data.get("srt_url", cfg.get("srt_url", None))
+        srt_url_value: Optional[str]
+        if srt_url_value_raw is None:
+            srt_url_value = None
+        else:
+            srt_url_value = str(srt_url_value_raw).strip()
+            if srt_url_value == "":
+                srt_url_value = None
+
+        if capture_mode_value == "srt" and not srt_url_value:
+            return jsonify({"error": "srt_url is required when capture_mode is 'srt'"}), 400
+
         start_worker(
             device_mode_value,
             audio_device,
@@ -386,6 +404,7 @@ def api_worker():  # type: ignore[override]
             language_value,
             capture_mode_value,
             vad_level_value,
+            srt_url_value,
         )
         return jsonify({"ok": True, "running": True})
 

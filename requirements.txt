@@ -6,3 +6,4 @@ ctranslate2>=4.4
 sentencepiece>=0.1.99
 huggingface_hub>=0.22
 webrtcvad>=2.0.10
+imageio-ffmpeg>=0.4.8

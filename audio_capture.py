@@ -1,9 +1,42 @@
-import sounddevice as sd
-import numpy as np
+import os
+import sys
+import shutil
+import subprocess
+from pathlib import Path
 from typing import Optional
+
+import numpy as np
+import sounddevice as sd
 
 
 DEFAULT_SAMPLE_RATE = 16000
+
+
+def _resolve_ffmpeg_binary() -> str:
+    env_value = os.environ.get("MST_FFMPEG")
+    if env_value:
+        return env_value
+
+    try:
+        import imageio_ffmpeg  # type: ignore[import]
+
+        return imageio_ffmpeg.get_ffmpeg_exe()
+    except Exception:
+        pass
+
+    env_root = Path(sys.prefix)
+    candidates = [
+        env_root / "ffmpeg" / "bin" / "ffmpeg.exe",
+        env_root / "ffmpeg" / "bin" / "ffmpeg",
+        env_root / "bin" / "ffmpeg",
+    ]
+    for cand in candidates:
+        if cand.exists():
+            return str(cand)
+    which_path = shutil.which("ffmpeg")
+    if which_path:
+        return which_path
+    return "ffmpeg"
 
 
 def record_block(
@@ -11,6 +44,7 @@ def record_block(
     samplerate: int = DEFAULT_SAMPLE_RATE,
     device: Optional[int] = None,
     capture_mode: str = "input",
+    srt_url: Optional[str] = None,
 ) -> np.ndarray:
     """Record a mono audio block from the given input or loopback device.
 
@@ -32,6 +66,75 @@ def record_block(
                       if loopback is not available.
     """
     frames = int(seconds * samplerate)
+
+    if capture_mode == "srt":
+        if not srt_url:
+            print("[srt] capture_mode='srt' ですが srt_url が指定されていません。")
+            return np.zeros(0, dtype="float32")
+        ffmpeg_bin = _resolve_ffmpeg_binary()
+        audio_bytes = b""
+        for attempt in range(3):
+            try:
+                proc = subprocess.run(
+                    [
+                        ffmpeg_bin,
+                        "-loglevel",
+                        "error",
+                        "-i",
+                        srt_url,
+                        "-vn",
+                        "-acodec",
+                        "pcm_s16le",
+                        "-ac",
+                        "1",
+                        "-ar",
+                        str(samplerate),
+                        "-t",
+                        str(seconds),
+                        "-f",
+                        "s16le",
+                        "pipe:1",
+                    ],
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                    check=False,
+                )
+            except FileNotFoundError as exc:
+                print(f"[srt] ffmpeg バイナリが見つかりませんでした: {ffmpeg_bin!r} ({exc!r})")
+                return np.zeros(0, dtype="float32")
+            except Exception as exc:
+                print(f"[srt] ffmpeg 実行中に予期しない例外が発生しました (attempt={attempt + 1}): {exc!r}")
+                continue
+            audio_bytes = proc.stdout or b""
+            if proc.returncode != 0 or not audio_bytes:
+                stderr_txt = ""
+                if proc.stderr:
+                    try:
+                        stderr_txt = proc.stderr.decode(errors="ignore")
+                    except Exception:
+                        stderr_txt = "<stderr decode failed>"
+                    if len(stderr_txt) > 500:
+                        stderr_txt = stderr_txt[:500] + "..."
+                print(
+                    f"[srt] ffmpeg 実行に失敗しました (attempt={attempt + 1}, returncode={proc.returncode}). "
+                    f"stderr={stderr_txt!r}"
+                )
+                audio_bytes = b""
+                continue
+            break
+
+        if not audio_bytes:
+            print("[srt] 複数回リトライしましたが、SRT から音声データを取得できませんでした。")
+            return np.zeros(0, dtype="float32")
+        audio = np.frombuffer(audio_bytes, dtype=np.int16).astype("float32") / 32768.0
+        if audio.size == 0:
+            return audio
+        if audio.size < frames:
+            pad = np.zeros(frames - audio.size, dtype="float32")
+            audio = np.concatenate([audio, pad])
+        elif audio.size > frames:
+            audio = audio[:frames]
+        return audio
 
     if capture_mode == "loopback":
         # Prefer capturing from the default output device when none is
